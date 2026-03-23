@@ -420,7 +420,7 @@ CREATE TABLE t_knowledge_vector (
     id          VARCHAR(20) PRIMARY KEY,
     content     TEXT,
     metadata    JSONB,
-    embedding   vector(1024)
+    embedding   vector(1536)
 );
 
 CREATE INDEX idx_kv_metadata ON t_knowledge_vector USING gin(metadata);
