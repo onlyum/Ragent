@@ -36,6 +36,9 @@ public class ModelHealthStore {
 
     private final Map<String, ModelHealth> healthById = new ConcurrentHashMap<>();
 
+    /**
+     * 检查模型是否仍处于熔断打开状态。
+     */
     public boolean isOpen(String id) {
         ModelHealth health = healthById.get(id);
         if (health == null) {
@@ -44,6 +47,12 @@ public class ModelHealthStore {
         return health.state == State.OPEN && health.openUntil > System.currentTimeMillis();
     }
 
+    /**
+     * 判断是否允许对该模型发起调用。
+     * - OPEN 且未过期：拒绝调用。
+     * - OPEN 过期：进入 HALF_OPEN，允许一次试探调用。
+     * - HALF_OPEN：只允许一个并发试探调用。
+     */
     public boolean allowCall(String id) {
         if (id == null) {
             return false;
@@ -58,6 +67,7 @@ public class ModelHealthStore {
                 if (v.openUntil > now) {
                     return v;
                 }
+                // 熔断期结束后，进入半开状态，允许一次试探性请求
                 v.state = State.HALF_OPEN;
                 v.halfOpenInFlight = true;
                 allowed[0] = true;
@@ -77,6 +87,9 @@ public class ModelHealthStore {
         return allowed[0];
     }
 
+    /**
+     * 调用成功时，重置熔断状态与失败计数。
+     */
     public void markSuccess(String id) {
         if (id == null) {
             return;
@@ -93,6 +106,11 @@ public class ModelHealthStore {
         });
     }
 
+    /**
+     * 调用失败时记录一次失败。
+     * - HALF_OPEN 失败：立即重新打开熔断。
+     * - CLOSED 状态累积失败，达到阈值后打开熔断。
+     */
     public void markFailure(String id) {
         if (id == null) {
             return;
@@ -120,8 +138,11 @@ public class ModelHealthStore {
     }
 
     private static class ModelHealth {
+        /** 连续失败次数 */
         private int consecutiveFailures;
+        /** 熔断开放到期时间 */
         private long openUntil;
+        /** 半开状态下是否已有试探请求在执行 */
         private boolean halfOpenInFlight;
         private State state;
 
