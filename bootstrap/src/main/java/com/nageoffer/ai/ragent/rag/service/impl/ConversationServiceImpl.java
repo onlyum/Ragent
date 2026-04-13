@@ -202,6 +202,7 @@ public class ConversationServiceImpl implements ConversationService {
                     .temperature(0.7D)
                     .topP(0.3D)
                     .thinking(false)
+                    .step("conversation-title")
                     .build();
 
             return llmService.chat(request);

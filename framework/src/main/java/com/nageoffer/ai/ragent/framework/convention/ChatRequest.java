@@ -110,6 +110,16 @@ public class ChatRequest {
     private Boolean thinking;
 
     /**
+     * 当前 LLM 调用所属步骤标识
+     * <p>
+     * 用于在日志中标注本次请求/响应 JSON 属于哪一个业务步骤，
+     * 例如 query-rewrite、intent-classify、rag-answer-stream 等。
+     * 若为空则由底层记录为未命名步骤。
+     * </p>
+     */
+    private String step;
+
+    /**
      * 可选：是否启用工具调用（Tool Calling / Function Calling）
      * <p>
      * 当前预留字段，方便后续扩展为带工具调用能力的对话请求：

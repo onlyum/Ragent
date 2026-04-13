@@ -83,6 +83,7 @@ public class LLMMCPParameterExtractor implements MCPParameterExtractor {
                     .temperature(0.1D)
                     .topP(0.3D)
                     .thinking(false)
+                    .step("mcp-parameter-extract")
                     .build();
             raw = llmService.chat(request);
             log.info("MCP 参数提取 LLM 响应: {}", raw);

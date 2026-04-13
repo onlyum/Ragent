@@ -104,6 +104,7 @@ public class EnricherNode implements IngestionNode {
                                 ChatMessage.system(systemPrompt == null ? "" : systemPrompt),
                                 ChatMessage.user(userPrompt)
                         ))
+                        .step("ingestion-enricher-" + type.name().toLowerCase())
                         .build();
                 String response = chat(request, settings.getModelId());
                 applyResult(chunk, type, response);

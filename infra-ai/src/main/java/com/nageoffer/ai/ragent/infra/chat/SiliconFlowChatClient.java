@@ -77,6 +77,7 @@ public class SiliconFlowChatClient implements ChatClient {
                 .addHeader("Content-Type", HttpMediaTypes.JSON_UTF8_HEADER)
                 .addHeader("Authorization", "Bearer " + provider.getApiKey())
                 .build();
+        LLMJsonLogger.logRequest(request, target, provider(), false, reqBody.toString());
 
         JsonObject respJson;
         try (Response response = httpClient.newCall(requestHttp).execute()) {
@@ -90,6 +91,7 @@ public class SiliconFlowChatClient implements ChatClient {
                 );
             }
             respJson = parseJsonBody(response.body());
+            LLMJsonLogger.logResponse(request, target, provider(), false, gson.toJson(respJson));
         } catch (IOException e) {
             throw new ModelClientException("SiliconFlow 同步请求失败: " + e.getMessage(),
                     ModelClientErrorType.NETWORK_ERROR, null, e);
@@ -101,16 +103,18 @@ public class SiliconFlowChatClient implements ChatClient {
     @Override
     @RagTraceNode(name = "siliconflow-stream-chat", type = "LLM_PROVIDER")
     public StreamCancellationHandle streamChat(ChatRequest request, StreamCallback callback, ModelTarget target) {
-        Call call = httpClient.newCall(buildStreamRequest(request, target));
+        Request streamRequest = buildStreamRequest(request, target);
+        LLMJsonLogger.logRequest(request, target, provider(), true, readRequestBody(streamRequest));
+        Call call = httpClient.newCall(streamRequest);
         return StreamAsyncExecutor.submit(
                 modelStreamExecutor,
                 call,
                 callback,
-                cancelled -> doStream(call, callback, cancelled)
+                cancelled -> doStream(call, callback, cancelled, request, target)
         );
     }
 
-    private void doStream(Call call, StreamCallback callback, AtomicBoolean cancelled) {
+    private void doStream(Call call, StreamCallback callback, AtomicBoolean cancelled, ChatRequest request, ModelTarget target) {
         try (Response response = call.execute()) {
             if (!response.isSuccessful()) {
                 String body = readBody(response.body());
@@ -126,6 +130,7 @@ public class SiliconFlowChatClient implements ChatClient {
             }
             BufferedSource source = body.source();
             boolean completed = false;
+            int chunkIndex = 0;
             while (!cancelled.get()) {
                 String line = source.readUtf8Line();
                 if (line == null) {
@@ -134,6 +139,8 @@ public class SiliconFlowChatClient implements ChatClient {
                 if (line.isBlank()) {
                     continue;
                 }
+                chunkIndex++;
+                LLMJsonLogger.logStreamChunk(request, target, provider(), chunkIndex, line);
 
                 try {
                     OpenAIStyleSseParser.ParsedEvent event = OpenAIStyleSseParser.parseLine(line, gson, true);
@@ -254,6 +261,20 @@ public class SiliconFlowChatClient implements ChatClient {
             return "";
         }
         return new String(body.bytes(), StandardCharsets.UTF_8);
+    }
+
+    private String readRequestBody(Request request) {
+        if (request == null || request.body() == null) {
+            return "";
+        }
+        try {
+            okio.Buffer buffer = new okio.Buffer();
+            request.body().writeTo(buffer);
+            return buffer.readString(StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.warn("读取 SiliconFlow 请求体失败", e);
+            return "<failed-to-read-request-body>";
+        }
     }
 
     private String resolveUrl(AIModelProperties.ProviderConfig provider, ModelTarget target) {

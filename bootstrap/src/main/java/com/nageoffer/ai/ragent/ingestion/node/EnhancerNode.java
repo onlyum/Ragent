@@ -97,6 +97,7 @@ public class EnhancerNode implements IngestionNode {
                             ChatMessage.system(systemPrompt == null ? "" : systemPrompt),
                             ChatMessage.user(userPrompt)
                     ))
+                    .step("ingestion-enhancer-" + type.name().toLowerCase())
                     .build();
             String response = chat(request, settings.getModelId());
             applyTaskResult(context, type, response);

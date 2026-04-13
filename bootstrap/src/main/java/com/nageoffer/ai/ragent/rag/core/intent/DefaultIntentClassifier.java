@@ -147,6 +147,7 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
                 .temperature(0.1D)
                 .topP(0.3D)
                 .thinking(false)
+                .step("intent-classify")
                 .build();
 
         String raw = llmService.chat(request);

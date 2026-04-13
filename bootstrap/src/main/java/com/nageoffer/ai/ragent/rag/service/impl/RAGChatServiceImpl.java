@@ -162,6 +162,7 @@ public class RAGChatServiceImpl implements RAGChatService {
                 .messages(messages)
                 .temperature(0.7D)
                 .thinking(false)
+                .step("rag-system-answer-stream")
                 .build();
         return llmService.streamChat(req, callback);
     }
@@ -189,6 +190,7 @@ public class RAGChatServiceImpl implements RAGChatService {
                 .thinking(deepThinking)
                 .temperature(ctx.hasMcp() ? 0.3D : 0D)  // MCP 场景稍微放宽温度
                 .topP(ctx.hasMcp() ? 0.8D : 1D)
+                .step("rag-answer-stream")
                 .build();
 
         return llmService.streamChat(chatRequest, callback);

@@ -153,6 +153,7 @@ public class MultiQuestionRewriteService implements QueryRewriteService {
                 .temperature(0.1D)
                 .topP(0.3D)
                 .thinking(false)
+                .step("query-rewrite-and-split")
                 .build();
     }
 

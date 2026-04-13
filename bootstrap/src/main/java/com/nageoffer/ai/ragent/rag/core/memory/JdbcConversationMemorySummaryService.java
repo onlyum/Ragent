@@ -214,6 +214,7 @@ public class JdbcConversationMemorySummaryService implements ConversationMemoryS
                 .temperature(0.3D)
                 .topP(0.9D)
                 .thinking(false)
+                .step("conversation-summary")
                 .build();
         try {
             String result = llmService.chat(request);
