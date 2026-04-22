@@ -133,10 +133,10 @@ ai:
     message-chunk-size: 1   # 流式消息合并块大小
   # ====== Chat 模型组 ======
   chat:
-    default-model: qwen3-8B   # 默认使用的模型
-    deep-thinking-model: qwen3-8B   # 深度思考模型
+    default-model: Qwen/Qwen3-8B   # 默认使用的模型
+    deep-thinking-model: Qwen/Qwen3-8B   # 深度思考模型
     candidates:
-      - id: qwen3-8B      # 唯一标识
+      - id: Qwen/Qwen3-8B      # 唯一标识
         provider: siliconflow       # 关联供应商
         model: Qwen/Qwen3-8B        # 模型名称
         priority: 1
@@ -156,9 +156,9 @@ ai:
         priority: 2
   # ====== Embedding 模型组 ======
   embedding:
-    default-model: qwen-emb-8b
+    default-model: Qwen/Qwen3-Embedding-8B
     candidates:
-      - id: qwen-emb-8b
+      - id: Qwen/Qwen3-Embedding-8B
         provider: siliconflow
         model: Qwen/Qwen3-Embedding-8B
         dimension: ${rag.default.dimension}   # 向量维度
@@ -170,13 +170,13 @@ ai:
         priority: 2
   # ====== Rerank 模型组 ======
   rerank:
-    default-model: qwen3-rerank
+    default-model: Qwen/Qwen3-Reranker-8B
     candidates:
       - id: qwen3-rerank
         provider: bailian
         model: qwen3-rerank
         priority: 1
-      - id: qwen3-reranker-8b
+      - id: Qwen/Qwen3-Reranker-8B
         provider: siliconflow
         model: Qwen/Qwen3-Reranker-8B
         priority: 2
@@ -201,3 +201,8 @@ sa-token:
 
 app:
   demo-mode: false
+
+logging:
+  level:
+    root: INFO
+    com.nageoffer.ai.ragent: INFO

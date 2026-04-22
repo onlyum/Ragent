@@ -82,7 +82,7 @@ public class ChatQueueLimiter {
     private final ConversationGroupService conversationGroupService;
     private final MemoryProperties memoryProperties;
     @Qualifier("chatEntryExecutor")
-    private final Executor chatEntryExecutor;
+    private final Executor chatEntryExecutor; // 已经被 TTL 包装，用于将 trace / task / 节点栈透传到排队后执行线程
     private final String claimLua = loadLuaScript();
     private final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(
             1,
@@ -222,6 +222,8 @@ public class ChatQueueLimiter {
         }
         publishQueueNotify();
         try {
+            // 提交到 chatEntryExecutor，该线程池已由 TtlExecutors 包装，
+            // 所以父线程的 RagTraceContext / UserContext 等 TTL 上下文会被捕获并恢复。
             chatEntryExecutor.execute(() -> runOnAcquire(onAcquire));
         } catch (RuntimeException ex) {
             releasePermit(permitId, permitRef);

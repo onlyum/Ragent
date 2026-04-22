@@ -78,6 +78,7 @@ public class RagTraceAspect {
         Date startTime = new Date();
         long startMillis = System.currentTimeMillis();
 
+        // 写入 Run 启动记录，代表一条新的 trace 链路开始
         traceRecordService.startRun(RagTraceRunDO.builder()
                 .traceId(traceId)
                 .traceName(traceName)
@@ -110,6 +111,7 @@ public class RagTraceAspect {
             );
             throw ex;
         } finally {
+            // 清理 Trace 上下文，避免线程池线程复用后残留 traceId / NODE_STACK
             RagTraceContext.clear();
         }
     }
@@ -121,6 +123,7 @@ public class RagTraceAspect {
         }
         String traceId = RagTraceContext.getTraceId();
         if (StrUtil.isBlank(traceId)) {
+            // 没有 traceId 时不采集节点，避免产生无主节点数据
             return joinPoint.proceed();
         }
 
@@ -132,6 +135,7 @@ public class RagTraceAspect {
         Date startTime = new Date();
         long startMillis = System.currentTimeMillis();
 
+        // 记录当前节点的 parent 和 depth，父节点来自 NODE_STACK
         traceRecordService.startNode(RagTraceNodeDO.builder()
                 .traceId(traceId)
                 .nodeId(nodeId)
@@ -145,6 +149,7 @@ public class RagTraceAspect {
                 .startTime(startTime)
                 .build());
 
+        // 进入节点，将当前节点压入栈，以便子节点继承 parent/context
         RagTraceContext.pushNode(nodeId);
         try {
             Object result = joinPoint.proceed();
@@ -168,6 +173,7 @@ public class RagTraceAspect {
             );
             throw ex;
         } finally {
+            // 退出节点，弹栈恢复上一层 parent 信息
             RagTraceContext.popNode();
         }
     }

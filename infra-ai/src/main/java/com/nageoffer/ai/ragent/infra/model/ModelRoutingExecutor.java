@@ -38,6 +38,17 @@ public class ModelRoutingExecutor {
 
     private final ModelHealthStore healthStore;
 
+    /**
+     * 尝试依次调用候选模型，遇到失败则降级到下一个候选模型。
+     *
+     * @param capability  当前调用能力类型，用于日志输出
+     * @param targets     已排序的模型候选列表
+     * @param clientResolver  根据模型目标获取对应客户端实例
+     * @param caller      实际执行模型调用的函数式接口
+     * @param <C>         客户端类型
+     * @param <T>         返回类型
+     * @return 第一个成功模型的返回结果
+     */
     public <C, T> T executeWithFallback(
             ModelCapability capability,
             List<ModelTarget> targets,

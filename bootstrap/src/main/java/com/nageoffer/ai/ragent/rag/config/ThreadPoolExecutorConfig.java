@@ -31,6 +31,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 /**
  * 线程池执行器配置类
  * 为系统中不同的业务场景配置独立的线程池，提高并发处理能力
+ *
+ * 所有 Executor 都通过 TtlExecutors.getTtlExecutor 包装，
+ * 这样父线程提交任务时会捕获当前线程的 TransmittableThreadLocal 上下文，
+ * 子线程执行时再恢复该上下文，保证 RagTraceContext / UserContext 等信息可见。
  */
 @Configuration
 public class ThreadPoolExecutorConfig {
