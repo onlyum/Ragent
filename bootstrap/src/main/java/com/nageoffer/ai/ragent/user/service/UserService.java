@@ -22,7 +22,9 @@ import com.nageoffer.ai.ragent.user.controller.request.ChangePasswordRequest;
 import com.nageoffer.ai.ragent.user.controller.request.UserCreateRequest;
 import com.nageoffer.ai.ragent.user.controller.request.UserPageRequest;
 import com.nageoffer.ai.ragent.user.controller.request.UserUpdateRequest;
+import com.nageoffer.ai.ragent.user.controller.vo.CurrentUserVO;
 import com.nageoffer.ai.ragent.user.controller.vo.UserVO;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface UserService {
 
@@ -50,4 +52,9 @@ public interface UserService {
      * 修改当前用户密码
      */
     void changePassword(ChangePasswordRequest requestParam);
+
+    /**
+     * 上传并更新当前用户头像
+     */
+    CurrentUserVO updateCurrentAvatar(MultipartFile file, String contextPath);
 }

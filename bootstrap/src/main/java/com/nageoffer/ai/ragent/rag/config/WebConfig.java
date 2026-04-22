@@ -21,9 +21,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 /**
@@ -73,5 +76,16 @@ public class WebConfig implements WebMvcConfigurer {
                 .exposedHeaders("Authorization")
                 .allowCredentials(true)
                 .maxAge(3600);
+    }
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        Path uploadPath = Paths.get(System.getProperty("user.dir"), "uploads").toAbsolutePath().normalize();
+        String uploadLocation = uploadPath.toUri().toString();
+        if (!uploadLocation.endsWith("/")) {
+            uploadLocation = uploadLocation + "/";
+        }
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations(uploadLocation);
     }
 }

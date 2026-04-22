@@ -29,6 +29,7 @@ import com.nageoffer.ai.ragent.user.controller.request.ChangePasswordRequest;
 import com.nageoffer.ai.ragent.user.controller.request.UserCreateRequest;
 import com.nageoffer.ai.ragent.user.controller.request.UserPageRequest;
 import com.nageoffer.ai.ragent.user.controller.request.UserUpdateRequest;
+import com.nageoffer.ai.ragent.user.controller.vo.CurrentUserVO;
 import com.nageoffer.ai.ragent.user.controller.vo.UserVO;
 import com.nageoffer.ai.ragent.user.dao.entity.UserDO;
 import com.nageoffer.ai.ragent.user.dao.mapper.UserMapper;
@@ -36,12 +37,24 @@ import com.nageoffer.ai.ragent.user.enums.UserRole;
 import com.nageoffer.ai.ragent.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private static final String DEFAULT_ADMIN_USERNAME = "admin";
+    private static final long MAX_AVATAR_SIZE = 5 * 1024 * 1024L;
+    private static final String AVATAR_URL_PREFIX = "/uploads/avatars/";
+    private static final Set<String> ALLOWED_AVATAR_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif", "webp");
 
     private final UserMapper userMapper;
 
@@ -151,6 +164,52 @@ public class UserServiceImpl implements UserService {
         userMapper.updateById(record);
     }
 
+    @Override
+    public CurrentUserVO updateCurrentAvatar(MultipartFile file, String contextPath) {
+        if (file == null || file.isEmpty()) {
+            throw new ClientException("头像文件不能为空");
+        }
+        if (file.getSize() > MAX_AVATAR_SIZE) {
+            throw new ClientException("头像文件不能超过 5MB");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        String extension = resolveExtension(originalFilename);
+        if (!ALLOWED_AVATAR_EXTENSIONS.contains(extension)) {
+            throw new ClientException("仅支持 jpg、jpeg、png、gif、webp 格式头像");
+        }
+        String contentType = file.getContentType();
+        if (StrUtil.isNotBlank(contentType) && !contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            throw new ClientException("头像文件类型不合法");
+        }
+
+        LoginUser loginUser = UserContext.requireUser();
+        UserDO record = loadById(loginUser.getUserId());
+        String fileName = record.getId() + "-" + UUID.randomUUID().toString().replace("-", "") + "." + extension;
+        Path avatarDir = getAvatarDir();
+        Path target = avatarDir.resolve(fileName).normalize();
+
+        try {
+            Files.createDirectories(avatarDir);
+            file.transferTo(target);
+            deleteOldLocalAvatar(record.getAvatar());
+        } catch (IOException ex) {
+            throw new ClientException("头像保存失败，请稍后重试");
+        }
+
+        String normalizedContextPath = StrUtil.blankToDefault(contextPath, "");
+        String avatarUrl = normalizedContextPath + AVATAR_URL_PREFIX + fileName;
+        record.setAvatar(avatarUrl);
+        userMapper.updateById(record);
+
+        return new CurrentUserVO(
+                String.valueOf(record.getId()),
+                record.getUsername(),
+                record.getRole(),
+                record.getAvatar()
+        );
+    }
+
     private UserDO loadById(String id) {
         UserDO record = userMapper.selectOne(
                 Wrappers.lambdaQuery(UserDO.class)
@@ -198,6 +257,34 @@ public class UserServiceImpl implements UserService {
             return input == null;
         }
         return stored.equals(input);
+    }
+
+    private Path getAvatarDir() {
+        return Paths.get(System.getProperty("user.dir"), "uploads", "avatars").toAbsolutePath().normalize();
+    }
+
+    private String resolveExtension(String originalFilename) {
+        String filename = StrUtil.blankToDefault(originalFilename, "");
+        int dotIndex = filename.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == filename.length() - 1) {
+            return "";
+        }
+        return filename.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
+    }
+
+    private void deleteOldLocalAvatar(String avatarUrl) {
+        if (StrUtil.isBlank(avatarUrl) || !avatarUrl.contains(AVATAR_URL_PREFIX)) {
+            return;
+        }
+        String fileName = avatarUrl.substring(avatarUrl.lastIndexOf(AVATAR_URL_PREFIX) + AVATAR_URL_PREFIX.length());
+        if (StrUtil.isBlank(fileName) || fileName.contains("/") || fileName.contains("\\")) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(getAvatarDir().resolve(fileName).normalize());
+        } catch (IOException ignored) {
+            // 旧头像清理失败不影响新头像生效
+        }
     }
 
     private UserVO toVO(UserDO record) {

@@ -37,7 +37,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * 用户控制器
@@ -108,5 +112,14 @@ public class UserController {
     public Result<Void> changePassword(@RequestBody ChangePasswordRequest requestParam) {
         userService.changePassword(requestParam);
         return Results.success();
+    }
+
+    /**
+     * 上传并更新当前用户头像
+     */
+    @PostMapping("/user/avatar")
+    public Result<CurrentUserVO> uploadAvatar(@RequestParam("file") MultipartFile file,
+                                              HttpServletRequest request) {
+        return Results.success(userService.updateCurrentAvatar(file, request.getContextPath()));
     }
 }

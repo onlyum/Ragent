@@ -1,17 +1,16 @@
 import * as React from "react";
 import { differenceInCalendarDays, isValid } from "date-fns";
 import {
-  BookOpen,
   Bot,
   LogOut,
   MessageSquare,
   MoreHorizontal,
   Pencil,
-  PlayCircle,
   Plus,
   Search,
   Settings,
-  Trash2
+  Trash2,
+  UserRound
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -411,27 +410,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-48">
-              <DropdownMenuItem asChild>
-                <a
-                  href="https://nageoffer.com/ragent"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center"
-                >
-                  <BookOpen className="mr-2 h-4 w-4" />
-                  官方文档
-                </a>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <a
-                  href="https://space.bilibili.com/352177376"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center"
-                >
-                  <PlayCircle className="mr-2 h-4 w-4" />
-                  哔哩哔哩
-                </a>
+              <DropdownMenuItem
+                onClick={() => {
+                  navigate("/profile");
+                  onClose();
+                }}
+              >
+                <UserRound className="mr-2 h-4 w-4" />
+                个人中心
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => logout()} className="text-rose-600 focus:text-rose-600">
                 <LogOut className="mr-2 h-4 w-4" />

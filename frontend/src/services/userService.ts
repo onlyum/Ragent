@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import type { CurrentUser } from "@/types";
 
 export interface UserItem {
   id: string;
@@ -60,4 +61,10 @@ export async function deleteUser(id: string): Promise<void> {
 
 export async function changePassword(payload: ChangePasswordPayload): Promise<void> {
   await api.put("/user/password", payload);
+}
+
+export async function uploadCurrentUserAvatar(file: File): Promise<CurrentUser> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post<CurrentUser, CurrentUser>("/user/avatar", formData);
 }

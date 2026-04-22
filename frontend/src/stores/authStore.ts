@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import type { User } from "@/types";
 import { getCurrentUser, login as loginRequest, logout as logoutRequest } from "@/services/authService";
+import { uploadCurrentUserAvatar } from "@/services/userService";
 import { setAuthToken } from "@/services/api";
 import { useChatStore } from "@/stores/chatStore";
 import { storage } from "@/utils/storage";
@@ -19,6 +20,7 @@ interface AuthState {
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   fetchCurrentUser: () => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -111,5 +113,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       return;
     }
+  },
+  uploadAvatar: async (file) => {
+    const token = get().token || storage.getToken();
+    if (!token) {
+      throw new Error("未登录");
+    }
+    const data = await uploadCurrentUserAvatar(file);
+    const nextUser = { ...data, token };
+    storage.setUser(nextUser);
+    set({ user: nextUser, token, isAuthenticated: true });
   }
 }));
