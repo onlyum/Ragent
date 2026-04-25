@@ -30,7 +30,6 @@ import {
   getChunkStrategies,
   getChunkLogsPage
 } from "@/services/knowledgeService";
-import { getIngestionPipelines, type IngestionPipeline } from "@/services/ingestionService";
 import { getSystemSettings } from "@/services/settingsService";
 import { getErrorMessage } from "@/utils/error";
 
@@ -46,11 +45,6 @@ const STATUS_OPTIONS = [
 const SOURCE_OPTIONS = [
   { value: "file", label: "Local File" },
   { value: "url", label: "Remote URL" }
-];
-
-const PROCESS_MODE_OPTIONS = [
-  { value: "chunk", label: "直接分块" },
-  { value: "pipeline", label: "数据通道" }
 ];
 
 const NO_CHUNK_VALUE = -1;
@@ -123,11 +117,8 @@ export function KnowledgeDocumentsPage() {
   const [detailTarget, setDetailTarget] = useState<KnowledgeDocument | null>(null);
   const [detailName, setDetailName] = useState("");
   const [detailSaving, setDetailSaving] = useState(false);
-  const [detailProcessMode, setDetailProcessMode] = useState("chunk");
   const [detailChunkStrategy, setDetailChunkStrategy] = useState("structure_aware");
-  const [detailPipelineId, setDetailPipelineId] = useState("");
   const [detailStrategies, setDetailStrategies] = useState<ChunkStrategyOption[]>([]);
-  const [detailPipelines, setDetailPipelines] = useState<IngestionPipeline[]>([]);
   const [detailConfigValues, setDetailConfigValues] = useState<Record<string, string>>({});
   const [detailSourceLocation, setDetailSourceLocation] = useState("");
   const [detailScheduleEnabled, setDetailScheduleEnabled] = useState(false);
@@ -179,10 +170,7 @@ export function KnowledgeDocumentsPage() {
   useEffect(() => {
     if (detailTarget) {
       setDetailName(detailTarget.docName || "");
-      const mode = (detailTarget.processMode || "chunk").toLowerCase();
-      setDetailProcessMode(mode);
       setDetailChunkStrategy((detailTarget.chunkStrategy || "structure_aware").toLowerCase());
-      setDetailPipelineId(detailTarget.pipelineId ? String(detailTarget.pipelineId) : "");
       setDetailSourceLocation(detailTarget.sourceLocation || "");
       setDetailScheduleEnabled(Boolean(detailTarget.scheduleEnabled));
       setDetailScheduleCron(detailTarget.scheduleCron || "");
@@ -197,15 +185,11 @@ export function KnowledgeDocumentsPage() {
 
       // 加载策略列表和管道列表
       getChunkStrategies().then(setDetailStrategies).catch(() => {});
-      getIngestionPipelines(1, 100).then(r => setDetailPipelines(r.records || [])).catch(() => {});
     } else {
       setDetailName("");
-      setDetailProcessMode("chunk");
       setDetailChunkStrategy("structure_aware");
-      setDetailPipelineId("");
       setDetailConfigValues({});
       setDetailStrategies([]);
-      setDetailPipelines([]);
       setDetailSourceLocation("");
       setDetailScheduleEnabled(false);
       setDetailScheduleCron("");
@@ -271,22 +255,16 @@ export function KnowledgeDocumentsPage() {
     setDetailSaving(true);
     try {
       const data: Parameters<typeof updateDocument>[1] = {
-        docName: nextName,
-        processMode: detailProcessMode,
+        docName: nextName
       };
-      if (detailProcessMode === "chunk") {
-        data.chunkStrategy = detailChunkStrategy;
-        // 根据策略的 defaultConfig keys 组装 chunkConfig JSON
-        const strategy = detailStrategies.find(s => s.value === detailChunkStrategy);
-        if (strategy) {
-          const configObj: Record<string, number> = {};
-          for (const key of Object.keys(strategy.defaultConfig)) {
-            configObj[key] = Number(detailConfigValues[key]) || strategy.defaultConfig[key];
-          }
-          data.chunkConfig = JSON.stringify(configObj);
+      data.chunkStrategy = detailChunkStrategy;
+      const strategy = detailStrategies.find(s => s.value === detailChunkStrategy);
+      if (strategy) {
+        const configObj: Record<string, number> = {};
+        for (const key of Object.keys(strategy.defaultConfig)) {
+          configObj[key] = Number(detailConfigValues[key]) || strategy.defaultConfig[key];
         }
-      } else {
-        data.pipelineId = detailPipelineId;
+        data.chunkConfig = JSON.stringify(configObj);
       }
       // 添加定时调度相关字段（仅 URL 类型）
       if (detailTarget.sourceType?.toLowerCase() === "url") {
@@ -432,7 +410,7 @@ export function KnowledgeDocumentsPage() {
                 <TableRow>
                   <TableHead className="w-[260px]">文档</TableHead>
                   <TableHead className="w-[120px]">来源</TableHead>
-                  <TableHead className="w-[120px]">处理模式</TableHead>
+                  <TableHead className="w-[120px]">切分方式</TableHead>
                   <TableHead className="w-[120px]">状态</TableHead>
                   <TableHead className="w-[80px]">启用</TableHead>
                   <TableHead className="w-[90px]">分块数</TableHead>
@@ -465,7 +443,7 @@ export function KnowledgeDocumentsPage() {
                     </TableCell>
                     <TableCell>
                       <span className="text-xs text-muted-foreground">
-                        {doc.processMode || "-"}
+                        {formatChunkStrategy(doc.chunkStrategy)}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -690,88 +668,58 @@ export function KnowledgeDocumentsPage() {
                 </>
               ) : null}
 
-              <div>
-                <div className="text-sm font-medium mb-2">处理模式</div>
-                <Select value={detailProcessMode} onValueChange={setDetailProcessMode}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="chunk">分块策略</SelectItem>
-                    <SelectItem value="pipeline">数据通道</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="text-sm text-muted-foreground mt-1">
-                  分块策略：直接分块；数据通道：使用Pipeline清洗
-                </div>
-              </div>
-
-              {detailProcessMode === "pipeline" ? (
+              <div className="space-y-3 rounded-lg border p-3">
                 <div>
-                  <div className="text-sm font-medium mb-2">数据通道</div>
-                  <Select value={detailPipelineId} onValueChange={setDetailPipelineId}>
-                    <SelectTrigger><SelectValue placeholder="选择数据通道" /></SelectTrigger>
+                  <div className="text-sm font-medium mb-2">分块策略</div>
+                  <Select value={detailChunkStrategy} onValueChange={handleDetailStrategyChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {detailPipelines.map(p => (
-                        <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                      {detailStrategies.map(s => (
+                        <SelectItem key={s.value} value={s.value}>{s.label || s.value}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-              ) : null}
 
-              {detailProcessMode === "chunk" ? (
-                <div className="space-y-3 rounded-lg border p-3">
-                  <div>
-                    <div className="text-sm font-medium mb-2">分块策略</div>
-                    <Select value={detailChunkStrategy} onValueChange={handleDetailStrategyChange}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {detailStrategies.map(s => (
-                          <SelectItem key={s.value} value={s.value}>{s.label || s.value}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {detailChunkStrategy === "fixed_size" ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <div className="text-sm font-medium mb-2">块大小</div>
+                      <Input type="number" value={detailConfigValues["chunkSize"] ?? "512"}
+                        onChange={e => setDetailConfigValues(v => ({ ...v, chunkSize: e.target.value }))} />
+                      <div className="text-sm text-muted-foreground mt-1">字符数</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium mb-2">重叠大小</div>
+                      <Input type="number" value={detailConfigValues["overlapSize"] ?? "128"}
+                        onChange={e => setDetailConfigValues(v => ({ ...v, overlapSize: e.target.value }))} />
+                    </div>
                   </div>
-
-                  {detailChunkStrategy === "fixed_size" ? (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <div className="text-sm font-medium mb-2">块大小</div>
-                        <Input type="number" value={detailConfigValues["chunkSize"] ?? "512"}
-                          onChange={e => setDetailConfigValues(v => ({ ...v, chunkSize: e.target.value }))} />
-                        <div className="text-sm text-muted-foreground mt-1">字符数</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium mb-2">重叠大小</div>
-                        <Input type="number" value={detailConfigValues["overlapSize"] ?? "128"}
-                          onChange={e => setDetailConfigValues(v => ({ ...v, overlapSize: e.target.value }))} />
-                      </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <div className="text-sm font-medium mb-2">理想块大小</div>
+                      <Input type="number" value={detailConfigValues["targetChars"] ?? "1400"}
+                        onChange={e => setDetailConfigValues(v => ({ ...v, targetChars: e.target.value }))} />
                     </div>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <div className="text-sm font-medium mb-2">理想块大小</div>
-                        <Input type="number" value={detailConfigValues["targetChars"] ?? "1400"}
-                          onChange={e => setDetailConfigValues(v => ({ ...v, targetChars: e.target.value }))} />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium mb-2">块上限</div>
-                        <Input type="number" value={detailConfigValues["maxChars"] ?? "1800"}
-                          onChange={e => setDetailConfigValues(v => ({ ...v, maxChars: e.target.value }))} />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium mb-2">块下限</div>
-                        <Input type="number" value={detailConfigValues["minChars"] ?? "600"}
-                          onChange={e => setDetailConfigValues(v => ({ ...v, minChars: e.target.value }))} />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium mb-2">重叠大小</div>
-                        <Input type="number" value={detailConfigValues["overlapChars"] ?? "0"}
-                          onChange={e => setDetailConfigValues(v => ({ ...v, overlapChars: e.target.value }))} />
-                      </div>
+                    <div>
+                      <div className="text-sm font-medium mb-2">块上限</div>
+                      <Input type="number" value={detailConfigValues["maxChars"] ?? "1800"}
+                        onChange={e => setDetailConfigValues(v => ({ ...v, maxChars: e.target.value }))} />
                     </div>
-                  )}
-                </div>
-              ) : null}
+                    <div>
+                      <div className="text-sm font-medium mb-2">块下限</div>
+                      <Input type="number" value={detailConfigValues["minChars"] ?? "600"}
+                        onChange={e => setDetailConfigValues(v => ({ ...v, minChars: e.target.value }))} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium mb-2">重叠大小</div>
+                      <Input type="number" value={detailConfigValues["overlapChars"] ?? "0"}
+                        onChange={e => setDetailConfigValues(v => ({ ...v, overlapChars: e.target.value }))} />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : null}
           <DialogFooter>
@@ -801,8 +749,6 @@ export function KnowledgeDocumentsPage() {
           ) : logData && logData.records.length > 0 ? (
             <div className="space-y-4">
               {logData.records.slice(0, 1).map((log) => {
-                const isPipelineLog = log.processMode?.toLowerCase() === "pipeline";
-                const chunkLabel = isPipelineLog ? "数据通道耗时" : "分块耗时";
                 return (
                 <div key={log.id} className="space-y-4">
                   {/* 状态 + 基本信息 */}
@@ -817,32 +763,27 @@ export function KnowledgeDocumentsPage() {
                         {formatLogStatus(log.status)}
                       </span>
                       <span className="text-sm text-muted-foreground">
-                        {log.processMode === "pipeline" ? "数据通道" : "直接分块"}
-                        {log.processMode === "chunk" && log.chunkStrategy ? ` · ${formatChunkStrategy(log.chunkStrategy)}` : ""}
-                        {log.processMode === "pipeline" && (log.pipelineName || log.pipelineId) ? ` · ${log.pipelineName || log.pipelineId}` : ""}
+                        直接分块
+                        {log.chunkStrategy ? ` · ${formatChunkStrategy(log.chunkStrategy)}` : ""}
                       </span>
                     </div>
                     <span className="text-2xl font-semibold tabular-nums">{log.chunkCount ?? 0} <span className="text-sm font-normal text-muted-foreground">块</span></span>
                   </div>
 
                   {/* 耗时指标卡片 */}
-                  <div className={cn("grid gap-3", isPipelineLog ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4")}>
-                    {!isPipelineLog && (
-                      <div className="rounded-lg border bg-slate-50/50 p-3">
-                        <div className="text-xs text-muted-foreground mb-1">文本提取</div>
-                        <div className="text-lg font-semibold tabular-nums">{formatDuration(log.extractDuration)}</div>
-                      </div>
-                    )}
+                  <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                     <div className="rounded-lg border bg-slate-50/50 p-3">
-                      <div className="text-xs text-muted-foreground mb-1">{chunkLabel}</div>
+                      <div className="text-xs text-muted-foreground mb-1">文本提取</div>
+                      <div className="text-lg font-semibold tabular-nums">{formatDuration(log.extractDuration)}</div>
+                    </div>
+                    <div className="rounded-lg border bg-slate-50/50 p-3">
+                      <div className="text-xs text-muted-foreground mb-1">分块耗时</div>
                       <div className="text-lg font-semibold tabular-nums">{formatDuration(log.chunkDuration)}</div>
                     </div>
-                    {!isPipelineLog && (
-                      <div className="rounded-lg border bg-slate-50/50 p-3">
-                        <div className="text-xs text-muted-foreground mb-1">向量化</div>
-                        <div className="text-lg font-semibold tabular-nums">{formatDuration(log.embedDuration)}</div>
-                      </div>
-                    )}
+                    <div className="rounded-lg border bg-slate-50/50 p-3">
+                      <div className="text-xs text-muted-foreground mb-1">向量化</div>
+                      <div className="text-lg font-semibold tabular-nums">{formatDuration(log.embedDuration)}</div>
+                    </div>
                     <div className="rounded-lg border bg-slate-50/50 p-3">
                       <div className="text-xs text-muted-foreground mb-1">持久化</div>
                       <div className="text-lg font-semibold tabular-nums">{formatDuration(log.persistDuration)}</div>
@@ -902,9 +843,7 @@ const uploadSchema = z
     sourceLocation: z.string().optional(),
     scheduleEnabled: z.boolean().default(false),
     scheduleCron: z.string().optional(),
-    processMode: z.enum(["chunk", "pipeline"]).default("chunk"),
     chunkStrategy: z.string().optional(),
-    pipelineId: z.string().optional(),
     chunkSize: z.string().optional(),
     overlapSize: z.string().optional(),
     targetChars: z.string().optional(),
@@ -947,32 +886,22 @@ const uploadSchema = z
       });
     }
 
-    if (values.processMode === "chunk") {
-      if (!values.chunkStrategy) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["chunkStrategy"],
-          message: "请选择分块策略"
-        });
-        return;
-      }
-      if (values.chunkStrategy === "fixed_size") {
-        requireNumber(values.chunkSize, "chunkSize", "块大小");
-        requireNumber(values.overlapSize, "overlapSize", "重叠大小");
-      } else {
-        requireNumber(values.targetChars, "targetChars", "理想块大小");
-        requireNumber(values.maxChars, "maxChars", "块上限");
-        requireNumber(values.minChars, "minChars", "块下限");
-        requireNumber(values.overlapChars, "overlapChars", "重叠大小");
-      }
-    } else if (values.processMode === "pipeline") {
-      if (isBlank(values.pipelineId)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["pipelineId"],
-          message: "请选择数据通道"
-        });
-      }
+    if (!values.chunkStrategy) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["chunkStrategy"],
+        message: "请选择分块策略"
+      });
+      return;
+    }
+    if (values.chunkStrategy === "fixed_size") {
+      requireNumber(values.chunkSize, "chunkSize", "块大小");
+      requireNumber(values.overlapSize, "overlapSize", "重叠大小");
+    } else {
+      requireNumber(values.targetChars, "targetChars", "理想块大小");
+      requireNumber(values.maxChars, "maxChars", "块上限");
+      requireNumber(values.minChars, "minChars", "块下限");
+      requireNumber(values.overlapChars, "overlapChars", "重叠大小");
     }
   });
 
@@ -986,8 +915,6 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
   const [chunkStrategies, setChunkStrategies] = useState<ChunkStrategyOption[]>([]);
   const [noChunk, setNoChunk] = useState(false);
   const [originalChunkSize, setOriginalChunkSize] = useState("512");
-  const [pipelines, setPipelines] = useState<IngestionPipeline[]>([]);
-  const [loadingPipelines, setLoadingPipelines] = useState(false);
   const [maxFileSize, setMaxFileSize] = useState<number>(50 * 1024 * 1024);
 
   const form = useForm<UploadFormValues>({
@@ -997,9 +924,7 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
       sourceLocation: "",
       scheduleEnabled: false,
       scheduleCron: "",
-      processMode: "chunk",
       chunkStrategy: "fixed_size",
-      pipelineId: "",
       chunkSize: "512",
       overlapSize: "128",
       targetChars: "1400",
@@ -1010,27 +935,11 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
   });
 
   const sourceType = form.watch("sourceType");
-  const processMode = form.watch("processMode");
   const chunkStrategy = form.watch("chunkStrategy");
   const scheduleEnabled = form.watch("scheduleEnabled");
   const chunkSize = form.watch("chunkSize");
   const isUrlSource = sourceType === "url";
-  const isChunkMode = processMode === "chunk";
-  const isPipelineMode = processMode === "pipeline";
   const isFixedSize = chunkStrategy === "fixed_size";
-
-  const loadPipelines = async () => {
-    setLoadingPipelines(true);
-    try {
-      const result = await getIngestionPipelines(1, 100);
-      setPipelines(result.records || []);
-    } catch (error) {
-      console.error("加载Pipeline失败", error);
-      toast.error("加载Pipeline失败");
-    } finally {
-      setLoadingPipelines(false);
-    }
-  };
 
   useEffect(() => {
     if (open) {
@@ -1040,9 +949,7 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
         sourceLocation: "",
         scheduleEnabled: false,
         scheduleCron: "",
-        processMode: "chunk",
         chunkStrategy: "fixed_size",
-        pipelineId: "",
         chunkSize: "512",
         overlapSize: "128",
         targetChars: "1400",
@@ -1052,7 +959,6 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
       });
       setNoChunk(false);
       setOriginalChunkSize("512");
-      loadPipelines();
       getChunkStrategies().then(setChunkStrategies).catch(() => {});
       getSystemSettings()
         .then((settings) => setMaxFileSize(settings.upload.maxFileSize))
@@ -1129,26 +1035,24 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
 
     // 根据当前策略的 defaultConfig keys 从表单值组装 chunkConfig JSON
     let chunkConfig: string | undefined;
-    if (values.processMode === "chunk") {
-      const strategy = chunkStrategies.find((s) => s.value === values.chunkStrategy);
-      if (strategy) {
-        const formAccessors: Record<string, string | undefined> = {
-          chunkSize: values.chunkSize,
-          overlapSize: values.overlapSize,
-          targetChars: values.targetChars,
-          maxChars: values.maxChars,
-          minChars: values.minChars,
-          overlapChars: values.overlapChars
-        };
-        const config: Record<string, number> = {};
-        for (const key of Object.keys(strategy.defaultConfig)) {
-          const val = parseNumber(formAccessors[key]);
-          if (val !== null) {
-            config[key] = val;
-          }
+    const strategy = chunkStrategies.find((s) => s.value === values.chunkStrategy);
+    if (strategy) {
+      const formAccessors: Record<string, string | undefined> = {
+        chunkSize: values.chunkSize,
+        overlapSize: values.overlapSize,
+        targetChars: values.targetChars,
+        maxChars: values.maxChars,
+        minChars: values.minChars,
+        overlapChars: values.overlapChars
+      };
+      const config: Record<string, number> = {};
+      for (const key of Object.keys(strategy.defaultConfig)) {
+        const val = parseNumber(formAccessors[key]);
+        if (val !== null) {
+          config[key] = val;
         }
-        chunkConfig = JSON.stringify(config);
       }
+      chunkConfig = JSON.stringify(config);
     }
 
     setSaving(true);
@@ -1162,10 +1066,8 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
           values.sourceType === "url" && values.scheduleEnabled
             ? values.scheduleCron.trim()
             : null,
-        processMode: values.processMode,
-        chunkStrategy: values.processMode === "chunk" ? values.chunkStrategy : undefined,
-        chunkConfig: chunkConfig ?? null,
-        pipelineId: values.processMode === "pipeline" ? values.pipelineId : null
+        chunkStrategy: values.chunkStrategy,
+        chunkConfig: chunkConfig ?? null
       };
       await onSubmit(payload);
     } catch (error) {
@@ -1323,67 +1225,8 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
             ) : null}
 
             <div className="space-y-3 rounded-lg border p-3">
-              <FormField
-                control={form.control}
-                name="processMode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>处理模式</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="选择处理模式" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {PROCESS_MODE_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {isPipelineMode ? (
-                <FormField
-                  control={form.control}
-                  name="pipelineId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs text-muted-foreground font-normal">选择通道</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange} disabled={loadingPipelines}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={loadingPipelines ? "加载中..." : "请选择"} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {pipelines.length > 0 ? (
-                            pipelines.map((pipeline) => (
-                              <SelectItem key={pipeline.id} value={pipeline.id}>
-                                {pipeline.name}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <div className="py-6 text-center text-sm text-muted-foreground">
-                              暂无数据通道
-                            </div>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>通过ETL处理提升文件数据质量，增强向量搜索效果</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ) : null}
-
-              {isChunkMode ? (
-                <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">上传后将直接进入文档切分与向量化流程。</div>
+              <div className="space-y-3">
                   <FormField
                     control={form.control}
                     name="chunkStrategy"
@@ -1522,7 +1365,6 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
                 </div>
               )}
             </div>
-            ) : null}
             </div>
 
             <DialogFooter>

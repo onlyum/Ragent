@@ -135,7 +135,6 @@ CREATE TABLE t_knowledge_document (
     file_url         VARCHAR(1024) NOT NULL,
     file_type        VARCHAR(16)   NOT NULL,
     file_size        BIGINT,
-    process_mode     VARCHAR(16)   DEFAULT 'chunk',
     status           VARCHAR(16)   NOT NULL DEFAULT 'pending',
     source_type      VARCHAR(16),
     source_location  VARCHAR(1024),
@@ -143,7 +142,6 @@ CREATE TABLE t_knowledge_document (
     schedule_cron    VARCHAR(64),
     chunk_strategy   VARCHAR(32),
     chunk_config     JSONB,
-    pipeline_id      VARCHAR(20),
     created_by       VARCHAR(20)   NOT NULL,
     updated_by       VARCHAR(20),
     create_time      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -176,9 +174,7 @@ CREATE TABLE t_knowledge_document_chunk_log (
     id                 VARCHAR(20)      NOT NULL PRIMARY KEY,
     doc_id             VARCHAR(20)      NOT NULL,
     status             VARCHAR(16)      NOT NULL,
-    process_mode       VARCHAR(16),
     chunk_strategy     VARCHAR(16),
-    pipeline_id        VARCHAR(20),
     extract_duration   BIGINT,
     chunk_duration     BIGINT,
     embed_duration     BIGINT,
@@ -338,81 +334,6 @@ COMMENT ON TABLE t_rag_trace_node IS 'Trace 节点记录表';
 -- Ingestion Pipeline Tables
 -- ============================================
 
-CREATE TABLE t_ingestion_pipeline (
-    id          VARCHAR(20)      NOT NULL PRIMARY KEY,
-    name        VARCHAR(100) NOT NULL,
-    description TEXT,
-    created_by  VARCHAR(20) DEFAULT '',
-    updated_by  VARCHAR(20) DEFAULT '',
-    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted     SMALLINT    NOT NULL DEFAULT 0,
-    CONSTRAINT uk_ingestion_pipeline_name UNIQUE (name, deleted)
-);
-COMMENT ON TABLE t_ingestion_pipeline IS '摄取流水线表';
-
-CREATE TABLE t_ingestion_pipeline_node (
-    id             VARCHAR(20)      NOT NULL PRIMARY KEY,
-    pipeline_id    VARCHAR(20)      NOT NULL,
-    node_id        VARCHAR(20) NOT NULL,
-    node_type      VARCHAR(16) NOT NULL,
-    next_node_id   VARCHAR(20),
-    settings_json  JSONB,
-    condition_json JSONB,
-    created_by     VARCHAR(20) DEFAULT '',
-    updated_by     VARCHAR(20) DEFAULT '',
-    create_time    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted        SMALLINT    NOT NULL DEFAULT 0,
-    CONSTRAINT uk_ingestion_pipeline_node UNIQUE (pipeline_id, node_id, deleted)
-);
-CREATE INDEX idx_ingestion_pipeline_node_pipeline ON t_ingestion_pipeline_node (pipeline_id);
-COMMENT ON TABLE t_ingestion_pipeline_node IS '摄取流水线节点表';
-
-CREATE TABLE t_ingestion_task (
-    id               VARCHAR(20)      NOT NULL PRIMARY KEY,
-    pipeline_id      VARCHAR(20)      NOT NULL,
-    source_type      VARCHAR(20) NOT NULL,
-    source_location  TEXT,
-    source_file_name VARCHAR(255),
-    status           VARCHAR(16) NOT NULL,
-    chunk_count      INTEGER     DEFAULT 0,
-    error_message    TEXT,
-    logs_json        JSONB,
-    metadata_json    JSONB,
-    started_at       TIMESTAMP,
-    completed_at     TIMESTAMP,
-    created_by       VARCHAR(20) DEFAULT '',
-    updated_by       VARCHAR(20) DEFAULT '',
-    create_time      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted          SMALLINT    NOT NULL DEFAULT 0
-);
-CREATE INDEX idx_ingestion_task_pipeline ON t_ingestion_task (pipeline_id);
-CREATE INDEX idx_ingestion_task_status ON t_ingestion_task (status);
-COMMENT ON TABLE t_ingestion_task IS '摄取任务表';
-
-CREATE TABLE t_ingestion_task_node (
-    id            VARCHAR(20)      NOT NULL PRIMARY KEY,
-    task_id       VARCHAR(20)      NOT NULL,
-    pipeline_id   VARCHAR(20)      NOT NULL,
-    node_id       VARCHAR(20) NOT NULL,
-    node_type     VARCHAR(16) NOT NULL,
-    node_order    INTEGER     NOT NULL DEFAULT 0,
-    status        VARCHAR(16) NOT NULL,
-    duration_ms   BIGINT      NOT NULL DEFAULT 0,
-    message       TEXT,
-    error_message TEXT,
-    output_json   TEXT,
-    create_time   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted       SMALLINT    NOT NULL DEFAULT 0
-);
-CREATE INDEX idx_ingestion_task_node_task ON t_ingestion_task_node (task_id);
-CREATE INDEX idx_ingestion_task_node_pipeline ON t_ingestion_task_node (pipeline_id);
-CREATE INDEX idx_ingestion_task_node_status ON t_ingestion_task_node (status);
-COMMENT ON TABLE t_ingestion_task_node IS '摄取任务节点表';
-
 -- ============================================
 -- Vector Storage Table (pgvector)
 -- ============================================
@@ -497,7 +418,6 @@ COMMENT ON COLUMN t_knowledge_document.chunk_count IS '分块数量';
 COMMENT ON COLUMN t_knowledge_document.file_url IS '文件存储路径';
 COMMENT ON COLUMN t_knowledge_document.file_type IS '文件类型';
 COMMENT ON COLUMN t_knowledge_document.file_size IS '文件大小（字节）';
-COMMENT ON COLUMN t_knowledge_document.process_mode IS '处理模式：chunk/pipeline';
 COMMENT ON COLUMN t_knowledge_document.status IS '状态：pending/running/success/failed';
 COMMENT ON COLUMN t_knowledge_document.source_type IS '来源类型：file/url';
 COMMENT ON COLUMN t_knowledge_document.source_location IS '来源地址';
@@ -505,7 +425,6 @@ COMMENT ON COLUMN t_knowledge_document.schedule_enabled IS '是否启用定时�
 COMMENT ON COLUMN t_knowledge_document.schedule_cron IS '定时表达式';
 COMMENT ON COLUMN t_knowledge_document.chunk_strategy IS '分块策略';
 COMMENT ON COLUMN t_knowledge_document.chunk_config IS '分块配置JSON';
-COMMENT ON COLUMN t_knowledge_document.pipeline_id IS 'Pipeline ID';
 COMMENT ON COLUMN t_knowledge_document.created_by IS '创建人';
 COMMENT ON COLUMN t_knowledge_document.updated_by IS '修改人';
 COMMENT ON COLUMN t_knowledge_document.create_time IS '创建时间';
@@ -532,9 +451,7 @@ COMMENT ON COLUMN t_knowledge_chunk.deleted IS '是否删除 0：正常 1：删�
 COMMENT ON COLUMN t_knowledge_document_chunk_log.id IS 'ID';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.doc_id IS '文档ID';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.status IS '状态';
-COMMENT ON COLUMN t_knowledge_document_chunk_log.process_mode IS '处理模式';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.chunk_strategy IS '分块策略';
-COMMENT ON COLUMN t_knowledge_document_chunk_log.pipeline_id IS 'Pipeline ID';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.extract_duration IS '提取耗时（毫秒）';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.chunk_duration IS '分块耗时（毫秒）';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.embed_duration IS '向量化耗时（毫秒）';
@@ -659,62 +576,3 @@ COMMENT ON COLUMN t_rag_trace_node.extra_data IS '扩展字段(JSON)';
 COMMENT ON COLUMN t_rag_trace_node.create_time IS '创建时间';
 COMMENT ON COLUMN t_rag_trace_node.update_time IS '更新时间';
 COMMENT ON COLUMN t_rag_trace_node.deleted IS '是否删除';
-
--- t_ingestion_pipeline
-COMMENT ON COLUMN t_ingestion_pipeline.id IS 'ID';
-COMMENT ON COLUMN t_ingestion_pipeline.name IS '流水线名称';
-COMMENT ON COLUMN t_ingestion_pipeline.description IS '流水线描述';
-COMMENT ON COLUMN t_ingestion_pipeline.created_by IS '创建人';
-COMMENT ON COLUMN t_ingestion_pipeline.updated_by IS '更新人';
-COMMENT ON COLUMN t_ingestion_pipeline.create_time IS '创建时间';
-COMMENT ON COLUMN t_ingestion_pipeline.update_time IS '更新时间';
-COMMENT ON COLUMN t_ingestion_pipeline.deleted IS '是否删除 0：正常 1：删除';
-
--- t_ingestion_pipeline_node
-COMMENT ON COLUMN t_ingestion_pipeline_node.id IS 'ID';
-COMMENT ON COLUMN t_ingestion_pipeline_node.pipeline_id IS '流水线ID';
-COMMENT ON COLUMN t_ingestion_pipeline_node.node_id IS '节点标识(同一流水线内唯一)';
-COMMENT ON COLUMN t_ingestion_pipeline_node.node_type IS '节点类型';
-COMMENT ON COLUMN t_ingestion_pipeline_node.next_node_id IS '下一个节点ID';
-COMMENT ON COLUMN t_ingestion_pipeline_node.settings_json IS '节点配置JSON';
-COMMENT ON COLUMN t_ingestion_pipeline_node.condition_json IS '条件JSON';
-COMMENT ON COLUMN t_ingestion_pipeline_node.created_by IS '创建人';
-COMMENT ON COLUMN t_ingestion_pipeline_node.updated_by IS '更新人';
-COMMENT ON COLUMN t_ingestion_pipeline_node.create_time IS '创建时间';
-COMMENT ON COLUMN t_ingestion_pipeline_node.update_time IS '更新时间';
-COMMENT ON COLUMN t_ingestion_pipeline_node.deleted IS '是否删除 0：正常 1：删除';
-
--- t_ingestion_task
-COMMENT ON COLUMN t_ingestion_task.id IS 'ID';
-COMMENT ON COLUMN t_ingestion_task.pipeline_id IS '流水线ID';
-COMMENT ON COLUMN t_ingestion_task.source_type IS '来源类型';
-COMMENT ON COLUMN t_ingestion_task.source_location IS '来源地址或URL';
-COMMENT ON COLUMN t_ingestion_task.source_file_name IS '原始文件名';
-COMMENT ON COLUMN t_ingestion_task.status IS '任务状态';
-COMMENT ON COLUMN t_ingestion_task.chunk_count IS '分块数量';
-COMMENT ON COLUMN t_ingestion_task.error_message IS '错误信息';
-COMMENT ON COLUMN t_ingestion_task.logs_json IS '节点日志JSON';
-COMMENT ON COLUMN t_ingestion_task.metadata_json IS '扩展元数据JSON';
-COMMENT ON COLUMN t_ingestion_task.started_at IS '开始时间';
-COMMENT ON COLUMN t_ingestion_task.completed_at IS '完成时间';
-COMMENT ON COLUMN t_ingestion_task.created_by IS '创建人';
-COMMENT ON COLUMN t_ingestion_task.updated_by IS '更新人';
-COMMENT ON COLUMN t_ingestion_task.create_time IS '创建时间';
-COMMENT ON COLUMN t_ingestion_task.update_time IS '更新时间';
-COMMENT ON COLUMN t_ingestion_task.deleted IS '是否删除 0：正常 1：删除';
-
--- t_ingestion_task_node
-COMMENT ON COLUMN t_ingestion_task_node.id IS 'ID';
-COMMENT ON COLUMN t_ingestion_task_node.task_id IS '任务ID';
-COMMENT ON COLUMN t_ingestion_task_node.pipeline_id IS '流水线ID';
-COMMENT ON COLUMN t_ingestion_task_node.node_id IS '节点标识';
-COMMENT ON COLUMN t_ingestion_task_node.node_type IS '节点类型';
-COMMENT ON COLUMN t_ingestion_task_node.node_order IS '节点顺序';
-COMMENT ON COLUMN t_ingestion_task_node.status IS '节点状态';
-COMMENT ON COLUMN t_ingestion_task_node.duration_ms IS '执行耗时(毫秒)';
-COMMENT ON COLUMN t_ingestion_task_node.message IS '节点消息';
-COMMENT ON COLUMN t_ingestion_task_node.error_message IS '错误信息';
-COMMENT ON COLUMN t_ingestion_task_node.output_json IS '节点输出JSON(全量)';
-COMMENT ON COLUMN t_ingestion_task_node.create_time IS '创建时间';
-COMMENT ON COLUMN t_ingestion_task_node.update_time IS '更新时间';
-COMMENT ON COLUMN t_ingestion_task_node.deleted IS '是否删除 0：正常 1：删除';

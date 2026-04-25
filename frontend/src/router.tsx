@@ -12,7 +12,6 @@ import { KnowledgeChunksPage } from "@/pages/admin/knowledge/KnowledgeChunksPage
 import { IntentTreePage } from "@/pages/admin/intent-tree/IntentTreePage";
 import { IntentListPage } from "@/pages/admin/intent-tree/IntentListPage";
 import { IntentEditPage } from "@/pages/admin/intent-tree/IntentEditPage";
-import { IngestionPage } from "@/pages/admin/ingestion/IngestionPage";
 import { RagTracePage } from "@/pages/admin/traces/RagTracePage";
 import { RagTraceDetailPage } from "@/pages/admin/traces/RagTraceDetailPage";
 import { SystemSettingsPage } from "@/pages/admin/settings/SystemSettingsPage";
@@ -133,10 +132,6 @@ export const router = createBrowserRouter([
       {
         path: "intent-list/:id/edit",
         element: <IntentEditPage />
-      },
-      {
-        path: "ingestion",
-        element: <IngestionPage />
       },
       {
         path: "traces",

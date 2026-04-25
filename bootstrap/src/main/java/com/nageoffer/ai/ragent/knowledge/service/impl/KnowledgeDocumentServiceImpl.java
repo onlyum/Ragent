@@ -39,12 +39,6 @@ import com.nageoffer.ai.ragent.core.parser.ParserType;
 import com.nageoffer.ai.ragent.framework.context.UserContext;
 import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.framework.mq.producer.MessageQueueProducer;
-import com.nageoffer.ai.ragent.ingestion.dao.entity.IngestionPipelineDO;
-import com.nageoffer.ai.ragent.ingestion.dao.mapper.IngestionPipelineMapper;
-import com.nageoffer.ai.ragent.ingestion.domain.context.IngestionContext;
-import com.nageoffer.ai.ragent.ingestion.domain.pipeline.PipelineDefinition;
-import com.nageoffer.ai.ragent.ingestion.engine.IngestionEngine;
-import com.nageoffer.ai.ragent.ingestion.service.IngestionPipelineService;
 import com.nageoffer.ai.ragent.knowledge.config.KnowledgeScheduleProperties;
 import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeChunkCreateRequest;
 import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeDocumentPageRequest;
@@ -61,7 +55,6 @@ import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeDocumentChunkLogMapper;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeDocumentMapper;
 import com.nageoffer.ai.ragent.knowledge.enums.DocumentStatus;
-import com.nageoffer.ai.ragent.knowledge.enums.ProcessMode;
 import com.nageoffer.ai.ragent.knowledge.enums.SourceType;
 import com.nageoffer.ai.ragent.knowledge.handler.RemoteFileFetcher;
 import com.nageoffer.ai.ragent.knowledge.mq.event.KnowledgeDocumentChunkEvent;
@@ -69,7 +62,6 @@ import com.nageoffer.ai.ragent.knowledge.schedule.CronScheduleHelper;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeChunkService;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeDocumentScheduleService;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeDocumentService;
-import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceId;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreService;
 import com.nageoffer.ai.ragent.rag.dto.StoredFileDTO;
 import com.nageoffer.ai.ragent.rag.service.FileStorageService;
@@ -105,9 +97,6 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     private final KnowledgeChunkService knowledgeChunkService;
     private final ObjectMapper objectMapper;
     private final KnowledgeDocumentScheduleService scheduleService;
-    private final IngestionPipelineService ingestionPipelineService;
-    private final IngestionPipelineMapper ingestionPipelineMapper;
-    private final IngestionEngine ingestionEngine;
     private final ChunkEmbeddingService chunkEmbeddingService;
     private final KnowledgeDocumentChunkLogMapper chunkLogMapper;
     private final TransactionOperations transactionOperations;
@@ -126,7 +115,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         SourceType sourceType = SourceType.normalize(requestParam.getSourceType());
         validateSourceAndSchedule(sourceType, requestParam);
         StoredFileDTO stored = resolveStoredFile(kbDO.getCollectionName(), sourceType, requestParam.getSourceLocation(), file);
-        ProcessModeConfig modeConfig = resolveProcessModeConfig(requestParam);
+        ChunkProcessConfig chunkProcessConfig = resolveChunkProcessConfig(requestParam);
 
         KnowledgeDocumentDO documentDO = KnowledgeDocumentDO.builder()
                 .kbId(kbId)
@@ -141,10 +130,8 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 .sourceLocation(SourceType.URL == sourceType ? StrUtil.trimToNull(requestParam.getSourceLocation()) : null)
                 .scheduleEnabled(isScheduleEnabled(sourceType, requestParam) ? 1 : 0)
                 .scheduleCron(isScheduleEnabled(sourceType, requestParam) ? StrUtil.trimToNull(requestParam.getScheduleCron()) : null)
-                .processMode(modeConfig.processMode().getValue())
-                .chunkStrategy(modeConfig.chunkingMode() != null ? modeConfig.chunkingMode().getValue() : null)
-                .chunkConfig(modeConfig.chunkConfig())
-                .pipelineId(modeConfig.pipelineId())
+                .chunkStrategy(chunkProcessConfig.chunkingMode().getValue())
+                .chunkConfig(chunkProcessConfig.chunkConfig())
                 .createdBy(UserContext.getUsername())
                 .updatedBy(UserContext.getUsername())
                 .build();
@@ -198,14 +185,11 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
 
     private void runChunkTask(KnowledgeDocumentDO documentDO) {
         String docId = documentDO.getId();
-        ProcessMode processMode = ProcessMode.normalize(documentDO.getProcessMode());
 
         KnowledgeDocumentChunkLogDO chunkLog = KnowledgeDocumentChunkLogDO.builder()
                 .docId(docId)
                 .status(DocumentStatus.RUNNING.getCode())
-                .processMode(processMode.getValue())
                 .chunkStrategy(documentDO.getChunkStrategy())
-                .pipelineId(documentDO.getPipelineId())
                 .startTime(new Date())
                 .build();
         chunkLogMapper.insert(chunkLog);
@@ -217,18 +201,11 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         long persistDuration = 0;
 
         try {
-            List<VectorChunk> chunkResults;
-            if (ProcessMode.PIPELINE == processMode) {
-                long start = System.currentTimeMillis();
-                chunkResults = runPipelineProcess(documentDO);
-                chunkDuration = System.currentTimeMillis() - start;
-            } else {
-                ChunkProcessResult result = runChunkProcess(documentDO);
-                extractDuration = result.extractDuration();
-                chunkDuration = result.chunkDuration();
-                embedDuration = result.embedDuration();
-                chunkResults = result.chunks();
-            }
+            ChunkProcessResult result = runChunkProcess(documentDO);
+            extractDuration = result.extractDuration();
+            chunkDuration = result.chunkDuration();
+            embedDuration = result.embedDuration();
+            List<VectorChunk> chunkResults = result.chunks();
 
             long persistStart = System.currentTimeMillis();
             String collectionName = resolveCollectionName(documentDO.getKbId());
@@ -325,56 +302,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                                       long embedDuration) {
     }
 
-    private record ProcessModeConfig(ProcessMode processMode, ChunkingMode chunkingMode, String chunkConfig,
-                                     String pipelineId) {
-    }
-
-    /**
-     * 使用 Pipeline 处理文档，失败直接抛异常，由 runChunkTask 统一处理错误状态
-     */
-    private List<VectorChunk> runPipelineProcess(KnowledgeDocumentDO documentDO) {
-        String docId = String.valueOf(documentDO.getId());
-        String pipelineId = documentDO.getPipelineId();
-
-        if (pipelineId == null) {
-            throw new IllegalStateException("Pipeline模式下Pipeline ID为空：docId=" + docId);
-        }
-
-        KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(documentDO.getKbId());
-
-        PipelineDefinition pipelineDef = ingestionPipelineService.getDefinition(pipelineId);
-
-        byte[] fileBytes;
-        try (InputStream is = fileStorageService.openStream(documentDO.getFileUrl())) {
-            fileBytes = is.readAllBytes();
-        } catch (Exception e) {
-            throw new RuntimeException("读取文件内容失败：docId=" + docId, e);
-        }
-
-        IngestionContext context = IngestionContext.builder()
-                .taskId(docId)
-                .pipelineId(pipelineId)
-                .rawBytes(fileBytes)
-                .mimeType(documentDO.getFileType())
-                .vectorSpaceId(VectorSpaceId.builder()
-                        .logicalName(kbDO.getCollectionName())
-                        .build())
-                .skipIndexerWrite(true)
-                .build();
-
-        IngestionContext result = ingestionEngine.execute(pipelineDef, context);
-
-        if (result.getError() != null) {
-            throw new RuntimeException("Pipeline执行失败：" + result.getError().getMessage(), result.getError());
-        }
-
-        List<VectorChunk> chunks = result.getChunks();
-        if (chunks == null || chunks.isEmpty()) {
-            log.warn("Pipeline执行完成但未产生分块：docId={}", docId);
-            return List.of();
-        }
-
-        return chunks;
+    private record ChunkProcessConfig(ChunkingMode chunkingMode, String chunkConfig) {
     }
 
     public void chunkDocument(KnowledgeDocumentDO documentDO) {
@@ -447,30 +375,15 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 .set(KnowledgeDocumentDO::getDocName, docName.trim())
                 .set(KnowledgeDocumentDO::getUpdatedBy, UserContext.getUsername());
 
-        // 如果传了 processMode，校验并更新处理配置
-        if (StringUtils.hasText(requestParam.getProcessMode())) {
-            ProcessMode processMode = ProcessMode.normalize(requestParam.getProcessMode());
-            updateWrapper.set(KnowledgeDocumentDO::getProcessMode, processMode.getValue());
-
-            if (ProcessMode.CHUNK == processMode) {
-                ChunkingMode chunkingMode = ChunkingMode.fromValue(requestParam.getChunkStrategy());
-                String chunkConfig = validateAndNormalizeChunkConfig(chunkingMode, requestParam.getChunkConfig());
-                updateWrapper.set(KnowledgeDocumentDO::getChunkStrategy, chunkingMode.getValue());
-                updateWrapper.set(KnowledgeDocumentDO::getChunkConfig, chunkConfig);
-                updateWrapper.set(KnowledgeDocumentDO::getPipelineId, null);
-            } else {
-                if (!StringUtils.hasText(requestParam.getPipelineId())) {
-                    throw new ClientException("使用Pipeline模式时，必须指定Pipeline ID");
-                }
-                try {
-                    ingestionPipelineService.get(requestParam.getPipelineId());
-                } catch (Exception e) {
-                    throw new ClientException("指定的Pipeline不存在: " + requestParam.getPipelineId());
-                }
-                updateWrapper.set(KnowledgeDocumentDO::getPipelineId, requestParam.getPipelineId());
-                updateWrapper.set(KnowledgeDocumentDO::getChunkStrategy, null);
-                updateWrapper.set(KnowledgeDocumentDO::getChunkConfig, null);
-            }
+        if (StringUtils.hasText(requestParam.getChunkStrategy()) || requestParam.getChunkConfig() != null) {
+            ChunkingMode chunkingMode = StringUtils.hasText(requestParam.getChunkStrategy())
+                    ? ChunkingMode.fromValue(requestParam.getChunkStrategy())
+                    : ChunkingMode.fromValue(documentDO.getChunkStrategy());
+            String chunkConfig = requestParam.getChunkConfig() != null
+                    ? validateAndNormalizeChunkConfig(chunkingMode, requestParam.getChunkConfig())
+                    : documentDO.getChunkConfig();
+            updateWrapper.set(KnowledgeDocumentDO::getChunkStrategy, chunkingMode.getValue());
+            updateWrapper.set(KnowledgeDocumentDO::getChunkConfig, chunkConfig);
         }
 
         // 处理定时调度相关字段（仅 URL 类型文档支持）
@@ -650,30 +563,10 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         IPage<KnowledgeDocumentChunkLogDO> result = chunkLogMapper.selectPage(mpPage, qw);
 
         List<KnowledgeDocumentChunkLogDO> records = result.getRecords();
-        Map<String, String> pipelineNameMap = new HashMap<>();
-        if (CollUtil.isNotEmpty(records)) {
-            Set<String> pipelineIds = new HashSet<>();
-            for (KnowledgeDocumentChunkLogDO record : records) {
-                if (record.getPipelineId() != null) {
-                    pipelineIds.add(record.getPipelineId());
-                }
-            }
-            if (!pipelineIds.isEmpty()) {
-                List<IngestionPipelineDO> pipelines = ingestionPipelineMapper.selectByIds(pipelineIds);
-                if (CollUtil.isNotEmpty(pipelines)) {
-                    for (IngestionPipelineDO pipeline : pipelines) {
-                        pipelineNameMap.put(pipeline.getId(), pipeline.getName());
-                    }
-                }
-            }
-        }
 
         Page<KnowledgeDocumentChunkLogVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
         voPage.setRecords(records.stream().map(each -> {
             KnowledgeDocumentChunkLogVO vo = BeanUtil.toBean(each, KnowledgeDocumentChunkLogVO.class);
-            if (each.getPipelineId() != null) {
-                vo.setPipelineName(pipelineNameMap.get(each.getPipelineId()));
-            }
             Long totalDuration = each.getTotalDuration();
             if (totalDuration != null) {
                 long other = getOther(each, totalDuration);
@@ -685,15 +578,11 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     }
 
     private static long getOther(KnowledgeDocumentChunkLogDO each, Long totalDuration) {
-        String mode = each.getProcessMode();
-        boolean pipelineMode = ProcessMode.PIPELINE.getValue().equalsIgnoreCase(mode);
         long extract = each.getExtractDuration() == null ? 0 : each.getExtractDuration();
         long chunk = each.getChunkDuration() == null ? 0 : each.getChunkDuration();
         long embed = each.getEmbedDuration() == null ? 0 : each.getEmbedDuration();
         long persist = each.getPersistDuration() == null ? 0 : each.getPersistDuration();
-        return pipelineMode
-                ? totalDuration - chunk - persist
-                : totalDuration - extract - chunk - embed - persist;
+        return totalDuration - extract - chunk - embed - persist;
     }
 
     private String resolveCollectionName(String kbId) {
@@ -725,23 +614,13 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         }
     }
 
-    private ProcessModeConfig resolveProcessModeConfig(KnowledgeDocumentUploadRequest request) {
-        ProcessMode processMode = ProcessMode.normalize(request.getProcessMode());
-        if (ProcessMode.CHUNK == processMode) {
-            ChunkingMode chunkingMode = ChunkingMode.fromValue(request.getChunkStrategy());
-            String chunkConfig = validateAndNormalizeChunkConfig(chunkingMode, request.getChunkConfig());
-            return new ProcessModeConfig(processMode, chunkingMode, chunkConfig, null);
-        } else {
-            if (!StringUtils.hasText(request.getPipelineId())) {
-                throw new ClientException("使用Pipeline模式时，必须指定Pipeline ID");
-            }
-            try {
-                ingestionPipelineService.get(request.getPipelineId());
-            } catch (Exception e) {
-                throw new ClientException("指定的Pipeline不存在: " + request.getPipelineId());
-            }
-            return new ProcessModeConfig(processMode, null, null, request.getPipelineId());
-        }
+    private ChunkProcessConfig resolveChunkProcessConfig(KnowledgeDocumentUploadRequest request) {
+        String strategyValue = StringUtils.hasText(request.getChunkStrategy())
+                ? request.getChunkStrategy()
+                : ChunkingMode.FIXED_SIZE.getValue();
+        ChunkingMode chunkingMode = ChunkingMode.fromValue(strategyValue);
+        String chunkConfig = validateAndNormalizeChunkConfig(chunkingMode, request.getChunkConfig());
+        return new ChunkProcessConfig(chunkingMode, chunkConfig);
     }
 
     private StoredFileDTO resolveStoredFile(String bucketName, SourceType sourceType, String sourceLocation, MultipartFile file) {

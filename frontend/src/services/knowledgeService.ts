@@ -24,10 +24,8 @@ export interface KnowledgeDocument {
   fileUrl?: string | null;
   fileType?: string | null;
   fileSize?: number | null;
-  processMode?: string | null;
   chunkStrategy?: string | null;
   chunkConfig?: string | null;
-  pipelineId?: string | number | null;
   status?: string | null;
   createdBy?: string | null;
   updatedBy?: string | null;
@@ -60,10 +58,7 @@ export interface KnowledgeDocumentChunkLog {
   id: string;
   docId: string;
   status: string;
-  processMode?: string | null;
   chunkStrategy?: string | null;
-  pipelineId?: string | null;
-  pipelineName?: string | null;
   extractDuration?: number | null;
   chunkDuration?: number | null;
   embedDuration?: number | null;
@@ -103,10 +98,8 @@ export interface KnowledgeDocumentUploadPayload {
   sourceLocation?: string | null;
   scheduleEnabled?: boolean;
   scheduleCron?: string | null;
-  processMode?: "chunk" | "pipeline";
   chunkStrategy?: string;
   chunkConfig?: string | null;
-  pipelineId?: string | null;
 }
 
 export interface KnowledgeChunkPageParams {
@@ -216,17 +209,11 @@ export const uploadDocument = async (
   if (payload.scheduleCron) {
     formData.append("scheduleCron", payload.scheduleCron);
   }
-  if (payload.processMode) {
-    formData.append("processMode", payload.processMode);
-  }
   if (payload.chunkStrategy) {
     formData.append("chunkStrategy", payload.chunkStrategy);
   }
   if (payload.chunkConfig) {
     formData.append("chunkConfig", payload.chunkConfig);
-  }
-  if (payload.pipelineId) {
-    formData.append("pipelineId", payload.pipelineId);
   }
   return api.post<KnowledgeDocument, KnowledgeDocument>(`/knowledge-base/${kbId}/docs/upload`, formData, {
     headers: {
@@ -241,10 +228,8 @@ export const getDocument = async (docId: string): Promise<KnowledgeDocument> => 
 
 export const updateDocument = async (docId: string, data: {
   docName?: string;
-  processMode?: string;
   chunkStrategy?: string;
   chunkConfig?: string;
-  pipelineId?: string;
   sourceLocation?: string;
   scheduleEnabled?: number;
   scheduleCron?: string;

@@ -18,10 +18,8 @@ import {
   KeyRound,
   Search,
   Settings,
-  Upload,
   UserRound,
   Users,
-  FolderKanban,
   Workflow
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
@@ -100,26 +98,6 @@ const menuGroups: MenuGroup[] = [
         ]
       },
       {
-        id: "ingestion",
-        path: "/admin/ingestion",
-        label: "数据通道",
-        icon: Upload,
-        children: [
-          {
-            path: "/admin/ingestion",
-            label: "流水线管理",
-            icon: FolderKanban,
-            search: "?tab=pipelines"
-          },
-          {
-            path: "/admin/ingestion",
-            label: "流水线任务",
-            icon: ClipboardList,
-            search: "?tab=tasks"
-          }
-        ]
-      },
-      {
         path: "/admin/mappings",
         label: "关键词映射",
         icon: KeyRound
@@ -158,7 +136,6 @@ const breadcrumbMap: Record<string, string> = {
   knowledge: "知识库管理",
   "intent-tree": "意图树配置",
   "intent-list": "意图列表",
-  ingestion: "数据通道",
   traces: "链路追踪",
   "sample-questions": "示例问题",
   mappings: "关键词映射",
@@ -179,7 +156,7 @@ export function AdminLayout() {
     confirmPassword: ""
   });
   const [starCount, setStarCount] = useState<number | null>(null);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ ingestion: true, intent: true });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ intent: true });
   const [kbQuery, setKbQuery] = useState("");
   const [kbOptions, setKbOptions] = useState<KnowledgeBase[]>([]);
   const [docOptions, setDocOptions] = useState<KnowledgeDocumentSearchItem[]>([]);
@@ -289,16 +266,6 @@ export function AdminLayout() {
       }
     }
 
-    if (section === "ingestion") {
-      const searchParams = new URLSearchParams(location.search);
-      const tab = searchParams.get("tab");
-      if (tab === "tasks") {
-        items.push({ label: "流水线任务" });
-      } else if (tab === "pipelines") {
-        items.push({ label: "流水线管理" });
-      }
-    }
-
     if (section === "knowledge" && segments.length > 2) {
       items.push({ label: "文档管理" });
     }
@@ -324,17 +291,15 @@ export function AdminLayout() {
     const text = String(rounded).replace(/\.0$/, "");
     return `${text}k`;
   }, [starCount]);
-  const isIngestionActive = location.pathname.startsWith("/admin/ingestion");
   const isIntentActive =
     location.pathname.startsWith("/admin/intent-tree") || location.pathname.startsWith("/admin/intent-list");
 
   useEffect(() => {
     setOpenGroups((prev) => ({
       ...prev,
-      ingestion: prev.ingestion || isIngestionActive,
       intent: prev.intent || isIntentActive
     }));
-  }, [isIngestionActive, isIntentActive]);
+  }, [isIntentActive]);
 
   const handlePasswordSubmit = async () => {
     if (!passwordForm.currentPassword || !passwordForm.newPassword) {

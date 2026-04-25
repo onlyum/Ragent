@@ -37,24 +37,9 @@ public class KnowledgeDocumentChunkLogVO {
     private String status;
 
     /**
-     * 处理模式：chunk / pipeline
-     */
-    private String processMode;
-
-    /**
-     * 分块策略（仅 chunk 模式）
+     * 分块策略
      */
     private String chunkStrategy;
-
-    /**
-     * Pipeline ID（仅 pipeline 模式）
-     */
-    private String pipelineId;
-
-    /**
-     * Pipeline 名称（仅 pipeline 模式）
-     */
-    private String pipelineName;
 
     /**
      * 文本提取耗时（毫秒）

@@ -29,7 +29,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @MapperScan(basePackages = {
         "com.nageoffer.ai.ragent.rag.dao.mapper",
-        "com.nageoffer.ai.ragent.ingestion.dao.mapper",
         "com.nageoffer.ai.ragent.knowledge.dao.mapper",
         "com.nageoffer.ai.ragent.user.dao.mapper"
 })

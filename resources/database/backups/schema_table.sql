@@ -32,85 +32,6 @@ CREATE TABLE `t_conversation_summary`
     KEY               `idx_conv_user` (`conversation_id`,`user_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='会话摘要表（与消息表分离存储）';
 
-CREATE TABLE `t_ingestion_pipeline`
-(
-    `id`          bigint(20) NOT NULL COMMENT 'ID',
-    `name`        varchar(100) NOT NULL COMMENT '流水线名称',
-    `description` text COMMENT '流水线描述',
-    `created_by`  varchar(64)           DEFAULT '' COMMENT '创建人',
-    `updated_by`  varchar(64)           DEFAULT '' COMMENT '更新人',
-    `create_time` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `deleted`     tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除 0：正常 1：删除',
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_ingestion_pipeline_name` (`name`,`deleted`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='摄取流水线定义';
-
-CREATE TABLE `t_ingestion_pipeline_node`
-(
-    `id`             bigint(20) NOT NULL COMMENT 'ID',
-    `pipeline_id`    bigint(20) NOT NULL COMMENT '流水线ID',
-    `node_id`        varchar(64) NOT NULL COMMENT '节点标识(同一流水线内唯一)',
-    `node_type`      varchar(30) NOT NULL COMMENT '节点类型',
-    `next_node_id`   varchar(64)          DEFAULT NULL COMMENT '下一个节点ID',
-    `settings_json`  json                 DEFAULT NULL COMMENT '节点配置JSON',
-    `condition_json` json                 DEFAULT NULL COMMENT '条件JSON',
-    `created_by`     varchar(64)          DEFAULT '' COMMENT '创建人',
-    `updated_by`     varchar(64)          DEFAULT '' COMMENT '更新人',
-    `create_time`    datetime    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time`    datetime    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `deleted`        tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除 0：正常 1：删除',
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_ingestion_pipeline_node` (`pipeline_id`,`node_id`,`deleted`),
-    KEY              `idx_ingestion_pipeline_node_pipeline` (`pipeline_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='摄取流水线节点配置';
-
-CREATE TABLE `t_ingestion_task`
-(
-    `id`               bigint(20) NOT NULL COMMENT 'ID',
-    `pipeline_id`      bigint(20) NOT NULL COMMENT '流水线ID',
-    `source_type`      varchar(20) NOT NULL COMMENT '来源类型',
-    `source_location`  text COMMENT '来源地址或URL',
-    `source_file_name` varchar(255)         DEFAULT NULL COMMENT '原始文件名',
-    `status`           varchar(20) NOT NULL COMMENT '任务状态',
-    `chunk_count`      int(11) DEFAULT '0' COMMENT '分块数量',
-    `error_message`    text COMMENT '错误信息',
-    `logs_json`        json                 DEFAULT NULL COMMENT '节点日志JSON',
-    `metadata_json`    json                 DEFAULT NULL COMMENT '扩展元数据JSON',
-    `started_at`       datetime             DEFAULT NULL COMMENT '开始时间',
-    `completed_at`     datetime             DEFAULT NULL COMMENT '完成时间',
-    `created_by`       varchar(64)          DEFAULT '' COMMENT '创建人',
-    `updated_by`       varchar(64)          DEFAULT '' COMMENT '更新人',
-    `create_time`      datetime    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time`      datetime    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `deleted`          tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除 0：正常 1：删除',
-    PRIMARY KEY (`id`),
-    KEY                `idx_ingestion_task_pipeline` (`pipeline_id`),
-    KEY                `idx_ingestion_task_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='摄取任务记录';
-
-CREATE TABLE `t_ingestion_task_node`
-(
-    `id`            bigint(20) NOT NULL COMMENT 'ID',
-    `task_id`       bigint(20) NOT NULL COMMENT '任务ID',
-    `pipeline_id`   bigint(20) NOT NULL COMMENT '流水线ID',
-    `node_id`       varchar(64) NOT NULL COMMENT '节点标识',
-    `node_type`     varchar(30) NOT NULL COMMENT '节点类型',
-    `node_order`    int(11) NOT NULL DEFAULT '0' COMMENT '节点顺序',
-    `status`        varchar(20) NOT NULL COMMENT '节点状态',
-    `duration_ms`   bigint(20) NOT NULL DEFAULT '0' COMMENT '执行耗时(毫秒)',
-    `message`       text COMMENT '节点消息',
-    `error_message` text COMMENT '错误信息',
-    `output_json`   longtext COMMENT '节点输出JSON(全量)',
-    `create_time`   datetime    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time`   datetime    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `deleted`       tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除 0：正常 1：删除',
-    PRIMARY KEY (`id`),
-    KEY             `idx_ingestion_task_node_task` (`task_id`),
-    KEY             `idx_ingestion_task_node_pipeline` (`pipeline_id`),
-    KEY             `idx_ingestion_task_node_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='摄取任务节点执行记录';
-
 CREATE TABLE `t_intent_node`
 (
     `id`                    bigint(20) NOT NULL AUTO_INCREMENT COMMENT '自增主键',
@@ -184,7 +105,6 @@ CREATE TABLE `t_knowledge_document`
     `file_url`         varchar(1024) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文件地址',
     `file_type`        varchar(32) COLLATE utf8mb4_unicode_ci   NOT NULL COMMENT '文件类型',
     `file_size`        bigint(20) DEFAULT NULL COMMENT '文件大小（单位字节）',
-    `process_mode`     varchar(32) COLLATE utf8mb4_unicode_ci            DEFAULT 'chunk' COMMENT '处理模式',
     `status`           varchar(32) COLLATE utf8mb4_unicode_ci   NOT NULL DEFAULT 'pending' COMMENT '状态',
     `source_type`      varchar(32) COLLATE utf8mb4_unicode_ci            DEFAULT NULL COMMENT '来源类型：file/url',
     `source_location`  varchar(1024) COLLATE utf8mb4_unicode_ci          DEFAULT NULL COMMENT '来源位置（URL）',
@@ -192,7 +112,6 @@ CREATE TABLE `t_knowledge_document`
     `schedule_cron`    varchar(128) COLLATE utf8mb4_unicode_ci           DEFAULT NULL COMMENT '定时拉取cron表达式',
     `chunk_strategy`   varchar(32) COLLATE utf8mb4_unicode_ci            DEFAULT NULL COMMENT '分块策略',
     `chunk_config`     json                                              DEFAULT NULL COMMENT '分块参数JSON',
-    `pipeline_id`      bigint(20) DEFAULT NULL COMMENT '数据通道ID',
     `created_by`       varchar(64) COLLATE utf8mb4_unicode_ci   NOT NULL COMMENT '创建人',
     `updated_by`       varchar(64) COLLATE utf8mb4_unicode_ci            DEFAULT NULL COMMENT '修改人',
     `create_time`      datetime                                 NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -207,9 +126,7 @@ CREATE TABLE `t_knowledge_document_chunk_log`
     `id`                 bigint(20) NOT NULL COMMENT '主键ID',
     `doc_id`             bigint(20) NOT NULL COMMENT '文档ID',
     `status`             varchar(20) NOT NULL COMMENT '执行状态',
-    `process_mode`       varchar(20) DEFAULT NULL COMMENT '处理模式',
-    `chunk_strategy`     varchar(50) DEFAULT NULL COMMENT '分块策略（仅chunk模式）',
-    `pipeline_id`        bigint(20) DEFAULT NULL COMMENT 'Pipeline ID（仅pipeline模式）',
+    `chunk_strategy`     varchar(50) DEFAULT NULL COMMENT '分块策略',
     `extract_duration`   bigint(20) DEFAULT NULL COMMENT '文本提取耗时（毫秒）',
     `chunk_duration`     bigint(20) DEFAULT NULL COMMENT '分块耗时（毫秒）',
     `embedding_duration` bigint(20) DEFAULT NULL COMMENT '向量化耗时（毫秒）',

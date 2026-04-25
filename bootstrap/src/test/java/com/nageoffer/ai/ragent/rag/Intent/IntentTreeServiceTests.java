@@ -20,7 +20,7 @@ package com.nageoffer.ai.ragent.rag.Intent;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONUtil;
 import com.nageoffer.ai.ragent.rag.controller.vo.IntentNodeTreeVO;
-import com.nageoffer.ai.ragent.ingestion.service.IntentTreeService;
+import com.nageoffer.ai.ragent.rag.service.IntentTreeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
