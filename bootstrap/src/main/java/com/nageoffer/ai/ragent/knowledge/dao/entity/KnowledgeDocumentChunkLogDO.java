@@ -48,6 +48,11 @@ public class KnowledgeDocumentChunkLogDO {
     private String docId;
 
     /**
+     * 文档类型
+     */
+    private String docType;
+
+    /**
      * 执行状态：running / success / failed
      */
     private String status;
@@ -56,6 +61,16 @@ public class KnowledgeDocumentChunkLogDO {
      * 分块策略
      */
     private String chunkStrategy;
+
+    /**
+     * 实际使用的解析引擎
+     */
+    private String parseEngine;
+
+    /**
+     * 实际使用的切块引擎
+     */
+    private String chunkEngine;
 
     /**
      * 文本提取耗时（毫秒）

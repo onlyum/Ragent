@@ -43,6 +43,11 @@ public class KnowledgeDocumentVO {
     private String docName;
 
     /**
+     * 文档类型
+     */
+    private String docType;
+
+    /**
      * 来源类型
      */
     private String sourceType;
@@ -91,6 +96,16 @@ public class KnowledgeDocumentVO {
      * 分块策略
      */
     private String chunkStrategy;
+
+    /**
+     * 实际使用的解析引擎
+     */
+    private String parseEngine;
+
+    /**
+     * 实际使用的切块引擎
+     */
+    private String chunkEngine;
 
     /**
      * 分块参数配置（JSON）

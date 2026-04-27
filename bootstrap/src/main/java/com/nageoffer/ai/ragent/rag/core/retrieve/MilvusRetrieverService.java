@@ -65,7 +65,7 @@ public class MilvusRetrieverService implements RetrieverService {
         params.put("metric_type", ragDefaultProperties.getMetricType());
         params.put("ef", 128);
 
-        SearchReq req = SearchReq.builder()
+        SearchReq.SearchReqBuilder builder = SearchReq.builder()
                 .collectionName(
                         StrUtil.isBlank(retrieveParam.getCollectionName()) ? ragDefaultProperties.getCollectionName() : retrieveParam.getCollectionName()
                 )
@@ -73,8 +73,14 @@ public class MilvusRetrieverService implements RetrieverService {
                 .data(vectors)
                 .topK(retrieveParam.getTopK())
                 .searchParams(params)
-                .outputFields(List.of("id", "content", "metadata"))
-                .build();
+                .outputFields(List.of("id", "content", "metadata"));
+
+        String filterExpression = buildMetadataFilterExpression(retrieveParam.getMetadataFilters());
+        if (StrUtil.isNotBlank(filterExpression)) {
+            builder.filter(filterExpression);
+        }
+
+        SearchReq req = builder.build();
 
         SearchResp resp = milvusClient.search(req);
         List<List<SearchResp.SearchResult>> results = resp.getSearchResults();
@@ -91,6 +97,28 @@ public class MilvusRetrieverService implements RetrieverService {
                         Objects.toString(r.getEntity().get("content"), ""),
                         r.getScore()))
                 .collect(Collectors.toList());
+    }
+
+    String buildMetadataFilterExpression(Map<String, Object> metadataFilters) {
+        if (metadataFilters == null || metadataFilters.isEmpty()) {
+            return null;
+        }
+        return metadataFilters.entrySet().stream()
+                .filter(entry -> StrUtil.isNotBlank(entry.getKey()) && entry.getValue() != null)
+                .map(entry -> formatMetadataFilter(entry.getKey(), entry.getValue()))
+                .collect(Collectors.joining(" && "));
+    }
+
+    private String formatMetadataFilter(String key, Object value) {
+        String escapedKey = escapeFilterString(key);
+        if (value instanceof Number || value instanceof Boolean) {
+            return "metadata[\"" + escapedKey + "\"] == " + value;
+        }
+        return "metadata[\"" + escapedKey + "\"] == \"" + escapeFilterString(Objects.toString(value, "")) + "\"";
+    }
+
+    private String escapeFilterString(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static float[] toArray(List<Float> list) {

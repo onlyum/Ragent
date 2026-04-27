@@ -33,6 +33,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
@@ -126,7 +127,8 @@ public class VectorGlobalSearchChannel implements SearchChannel {
             List<RetrievedChunk> allChunks = retrieveFromAllCollections(
                     context.getMainQuestion(),
                     collections,
-                    context.getTopK() * topKMultiplier
+                    context.getTopK() * topKMultiplier,
+                    context.getMetadataFilters()
             );
 
             long latency = System.currentTimeMillis() - startTime;
@@ -180,9 +182,10 @@ public class VectorGlobalSearchChannel implements SearchChannel {
      */
     private List<RetrievedChunk> retrieveFromAllCollections(String question,
                                                             List<String> collections,
-                                                            int topK) {
+                                                            int topK,
+                                                            Map<String, Object> metadataFilters) {
         // 使用模板方法执行并行检索
-        return parallelRetriever.executeParallelRetrieval(question, collections, topK);
+        return parallelRetriever.executeParallelRetrieval(question, collections, topK, metadataFilters);
     }
 
     @Override

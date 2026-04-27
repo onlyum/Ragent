@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -61,6 +62,23 @@ public abstract class AbstractParallelRetriever<T> {
     public final List<RetrievedChunk> executeParallelRetrieval(String question,
                                                                List<T> targets,
                                                                int topK) {
+        return executeParallelRetrieval(question, targets, topK, Map.of());
+    }
+
+    /**
+     * 并行检索模板方法，支持向量 metadata 过滤条件透传
+     *
+     * @param question        查询问题
+     * @param targets         检索目标列表
+     * @param topK            每个目标的 TopK
+     * @param metadataFilters metadata 等值过滤条件
+     * @return 合并后的检索结果
+     */
+    public final List<RetrievedChunk> executeParallelRetrieval(String question,
+                                                               List<T> targets,
+                                                               int topK,
+                                                               Map<String, Object> metadataFilters) {
+        Map<String, Object> safeMetadataFilters = metadataFilters == null ? Map.of() : metadataFilters;
         // 1. 创建 Future 列表
         record RetrievalFuture<T>(T target, CompletableFuture<List<RetrievedChunk>> future) {
         }
@@ -68,7 +86,7 @@ public abstract class AbstractParallelRetriever<T> {
         List<RetrievalFuture<T>> futures = targets.stream()
                 .map(target -> {
                     CompletableFuture<List<RetrievedChunk>> future = CompletableFuture.supplyAsync(
-                            () -> createRetrievalTask(question, target, topK),
+                            () -> createRetrievalTask(question, target, topK, safeMetadataFilters),
                             executor
                     );
                     return new RetrievalFuture<>(target, future);
@@ -108,6 +126,14 @@ public abstract class AbstractParallelRetriever<T> {
      * @return 检索结果列表
      */
     protected abstract List<RetrievedChunk> createRetrievalTask(String question, T target, int topK);
+
+    /**
+     * 创建单个检索任务，默认兼容无 metadata 过滤的旧实现
+     */
+    protected List<RetrievedChunk> createRetrievalTask(String question, T target, int topK,
+                                                       Map<String, Object> metadataFilters) {
+        return createRetrievalTask(question, target, topK);
+    }
 
     /**
      * 获取目标标识（用于日志）

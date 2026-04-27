@@ -1,0 +1,8 @@
+{
+  "text": "# QMD Smoke\n\nThis request is used to verify the local QMD adapter.\n\n## Details\n\nThe adapter reads JSON from stdin and returns normalized chunks on stdout.",
+  "fileName": "smoke.md",
+  "maxChars": 80,
+  "overlapChars": 10,
+  "windowChars": 20,
+  "chunkStrategy": "regex"
+}

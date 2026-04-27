@@ -54,6 +54,11 @@ public class KnowledgeDocumentDO {
     private String docName;
 
     /**
+     * 文档类型：general / project_report / academic_paper
+     */
+    private String docType;
+
+    /**
      * 来源类型：file / url
      */
     private String sourceType;
@@ -102,6 +107,16 @@ public class KnowledgeDocumentDO {
      * 分块策略
      */
     private String chunkStrategy;
+
+    /**
+     * 实际使用的解析引擎
+     */
+    private String parseEngine;
+
+    /**
+     * 实际使用的切块引擎
+     */
+    private String chunkEngine;
 
     /**
      * 分块参数配置（JSON）

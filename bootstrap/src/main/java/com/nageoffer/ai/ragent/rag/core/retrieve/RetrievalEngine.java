@@ -80,6 +80,14 @@ public class RetrievalEngine {
      */
     @RagTraceNode(name = "retrieval-engine", type = "RETRIEVE")
     public RetrievalContext retrieve(List<SubQuestionIntent> subIntents, int topK) {
+        return retrieve(subIntents, topK, Map.of());
+    }
+
+    /**
+     * 检索方法，支持向量 metadata 过滤
+     */
+    @RagTraceNode(name = "retrieval-engine", type = "RETRIEVE")
+    public RetrievalContext retrieve(List<SubQuestionIntent> subIntents, int topK, Map<String, Object> metadataFilters) {
         if (CollUtil.isEmpty(subIntents)) {
             return RetrievalContext.builder()
                     .mcpContext("")
@@ -93,7 +101,8 @@ public class RetrievalEngine {
                 .map(si -> CompletableFuture.supplyAsync(
                         () -> buildSubQuestionContext(
                                 si,
-                                resolveSubQuestionTopK(si, finalTopK)
+                                resolveSubQuestionTopK(si, finalTopK),
+                                metadataFilters == null ? Map.of() : metadataFilters
                         ),
                         ragContextExecutor
                 ))
@@ -125,11 +134,12 @@ public class RetrievalEngine {
                 .build();
     }
 
-    private SubQuestionContext buildSubQuestionContext(SubQuestionIntent intent, int topK) {
+    private SubQuestionContext buildSubQuestionContext(SubQuestionIntent intent, int topK,
+                                                       Map<String, Object> metadataFilters) {
         List<NodeScore> kbIntents = filterKbIntents(intent.nodeScores());
         List<NodeScore> mcpIntents = filterMCPIntents(intent.nodeScores());
 
-        KbResult kbResult = retrieveAndRerank(intent, kbIntents, topK);
+        KbResult kbResult = retrieveAndRerank(intent, kbIntents, topK, metadataFilters);
 
         String mcpContext = CollUtil.isNotEmpty(mcpIntents)
                 ? executeMcpAndMerge(intent.subQuestion(), mcpIntents)
@@ -195,10 +205,11 @@ public class RetrievalEngine {
         return contextFormatter.formatMcpContext(responses, mcpIntents);
     }
 
-    private KbResult retrieveAndRerank(SubQuestionIntent intent, List<NodeScore> kbIntents, int topK) {
+    private KbResult retrieveAndRerank(SubQuestionIntent intent, List<NodeScore> kbIntents, int topK,
+                                       Map<String, Object> metadataFilters) {
         // 使用多通道检索引擎（是否启用全局检索由置信度阈值决定）
         List<SubQuestionIntent> subIntents = List.of(intent);
-        List<RetrievedChunk> chunks = multiChannelRetrievalEngine.retrieveKnowledgeChannels(subIntents, topK);
+        List<RetrievedChunk> chunks = multiChannelRetrievalEngine.retrieveKnowledgeChannels(subIntents, topK, metadataFilters);
 
         if (CollUtil.isEmpty(chunks)) {
             return KbResult.empty();

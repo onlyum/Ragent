@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Brain, Lightbulb, Send, Square } from "lucide-react";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/stores/chatStore";
@@ -16,6 +17,8 @@ export function ChatInput() {
     cancelGeneration,
     deepThinkingEnabled,
     setDeepThinkingEnabled,
+    docTypeFilter,
+    setDocTypeFilter,
     inputFocusKey
   } = useChatStore();
 
@@ -98,14 +101,14 @@ export function ChatInput() {
           />
           <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-[10px] bg-gradient-to-b from-white/0 via-white/40 to-white/90" />
         </div>
-        <div className="relative mt-2 flex items-center">
+        <div className="mt-2 flex items-center gap-2">
           <button
             type="button"
             onClick={() => setDeepThinkingEnabled(!deepThinkingEnabled)}
             disabled={isStreaming}
             aria-pressed={deepThinkingEnabled}
             className={cn(
-              "absolute left-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
+              "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
               deepThinkingEnabled
                 ? "border-[#BFDBFE] bg-[#DBEAFE] text-[#2563EB]"
                 : "border-transparent bg-[#F5F5F5] text-[#999999] hover:bg-[#EEEEEE]",
@@ -120,6 +123,22 @@ export function ChatInput() {
               ) : null}
             </span>
           </button>
+          <Select value={docTypeFilter} onValueChange={setDocTypeFilter} disabled={isStreaming}>
+            <SelectTrigger
+              className={cn(
+                "h-8 w-[126px] rounded-lg border-transparent bg-[#F5F5F5] px-3 text-xs text-[#666666] shadow-none focus:ring-0",
+                isStreaming && "cursor-not-allowed opacity-60"
+              )}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部文档</SelectItem>
+              <SelectItem value="general">通用文档</SelectItem>
+              <SelectItem value="project_report">项目报告</SelectItem>
+              <SelectItem value="academic_paper">学术论文</SelectItem>
+            </SelectContent>
+          </Select>
           <button
             type="button"
             onClick={handleSubmit}

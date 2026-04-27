@@ -1,0 +1,325 @@
+{
+  "id": "2026-04-10-101909",
+  "generated_at": "2026-04-10T02:19:09.5453964Z",
+  "language": "zh",
+  "pages": [
+    {
+      "slug": "1-xiang-mu-gai-shu-yu-he-xin-jie-zhi",
+      "title": "项目概述与核心价值",
+      "file": "1-xiang-mu-gai-shu-yu-he-xin-jie-zhi.md",
+      "section": "快速入门",
+      "level": "Beginner"
+    },
+    {
+      "slug": "2-kuai-su-kai-shi-zhi-nan",
+      "title": "快速开始指南",
+      "file": "2-kuai-su-kai-shi-zhi-nan.md",
+      "section": "快速入门",
+      "level": "Beginner"
+    },
+    {
+      "slug": "3-xi-tong-huan-jing-yao-qiu",
+      "title": "系统环境要求",
+      "file": "3-xi-tong-huan-jing-yao-qiu.md",
+      "section": "快速入门",
+      "group": "环境搭建与部署",
+      "level": "Beginner"
+    },
+    {
+      "slug": "4-shu-ju-ku-chu-shi-hua-pei-zhi",
+      "title": "数据库初始化配置",
+      "file": "4-shu-ju-ku-chu-shi-hua-pei-zhi.md",
+      "section": "快速入门",
+      "group": "环境搭建与部署",
+      "level": "Beginner"
+    },
+    {
+      "slug": "5-docker-bu-shu-fang-an",
+      "title": "Docker 部署方案",
+      "file": "5-docker-bu-shu-fang-an.md",
+      "section": "快速入门",
+      "group": "环境搭建与部署",
+      "level": "Beginner"
+    },
+    {
+      "slug": "6-zhi-neng-dui-hua-jie-mian-shi-yong",
+      "title": "智能对话界面使用",
+      "file": "6-zhi-neng-dui-hua-jie-mian-shi-yong.md",
+      "section": "快速入门",
+      "group": "基础功能体验",
+      "level": "Beginner"
+    },
+    {
+      "slug": "7-zhi-shi-ku-guan-li-ru-men",
+      "title": "知识库管理入门",
+      "file": "7-zhi-shi-ku-guan-li-ru-men.md",
+      "section": "快速入门",
+      "group": "基础功能体验",
+      "level": "Beginner"
+    },
+    {
+      "slug": "8-wen-dang-shang-chuan-yu-chu-li",
+      "title": "文档上传与处理",
+      "file": "8-wen-dang-shang-chuan-yu-chu-li.md",
+      "section": "快速入门",
+      "group": "基础功能体验",
+      "level": "Beginner"
+    },
+    {
+      "slug": "9-zheng-ti-xi-tong-jia-gou-she-ji",
+      "title": "整体系统架构设计",
+      "file": "9-zheng-ti-xi-tong-jia-gou-she-ji.md",
+      "section": "核心架构深入",
+      "level": "Advanced"
+    },
+    {
+      "slug": "10-mo-kuai-fen-ceng-yu-zhi-ze-hua-fen",
+      "title": "模块分层与职责划分",
+      "file": "10-mo-kuai-fen-ceng-yu-zhi-ze-hua-fen.md",
+      "section": "核心架构深入",
+      "level": "Advanced"
+    },
+    {
+      "slug": "11-quan-lian-lu-jian-suo-yu-sheng-cheng-liu-cheng",
+      "title": "全链路检索与生成流程",
+      "file": "11-quan-lian-lu-jian-suo-yu-sheng-cheng-liu-cheng.md",
+      "section": "核心架构深入",
+      "group": "RAG 核心流程",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "12-duo-tong-dao-jian-suo-jia-gou-she-ji",
+      "title": "多通道检索架构设计",
+      "file": "12-duo-tong-dao-jian-suo-jia-gou-she-ji.md",
+      "section": "核心架构深入",
+      "group": "RAG 核心流程",
+      "level": "Advanced"
+    },
+    {
+      "slug": "13-yi-tu-shi-bie-yu-yin-dao-ji-zhi",
+      "title": "意图识别与引导机制",
+      "file": "13-yi-tu-shi-bie-yu-yin-dao-ji-zhi.md",
+      "section": "核心架构深入",
+      "group": "RAG 核心流程",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "14-wen-ti-zhong-xie-yu-chai-fen-ce-lue",
+      "title": "问题重写与拆分策略",
+      "file": "14-wen-ti-zhong-xie-yu-chai-fen-ce-lue.md",
+      "section": "核心架构深入",
+      "group": "RAG 核心流程",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "15-mo-xing-lu-you-yu-rong-cuo-ji-zhi",
+      "title": "模型路由与容错机制",
+      "file": "15-mo-xing-lu-you-yu-rong-cuo-ji-zhi.md",
+      "section": "核心架构深入",
+      "group": "AI 能力集成",
+      "level": "Advanced"
+    },
+    {
+      "slug": "16-embedding-xiang-liang-hua-chu-li",
+      "title": "Embedding 向量化处理",
+      "file": "16-embedding-xiang-liang-hua-chu-li.md",
+      "section": "核心架构深入",
+      "group": "AI 能力集成",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "17-rerank-zhong-pai-xu-shi-xian",
+      "title": "Rerank 重排序实现",
+      "file": "17-rerank-zhong-pai-xu-shi-xian.md",
+      "section": "核心架构深入",
+      "group": "AI 能力集成",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "18-mcp-gong-ju-ji-cheng-kuang-jia",
+      "title": "MCP 工具集成框架",
+      "file": "18-mcp-gong-ju-ji-cheng-kuang-jia.md",
+      "section": "核心架构深入",
+      "group": "AI 能力集成",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "19-wen-dang-she-qu-liu-shui-xian",
+      "title": "文档摄取流水线",
+      "file": "19-wen-dang-she-qu-liu-shui-xian.md",
+      "section": "核心架构深入",
+      "group": "数据管理",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "20-fen-kuai-ce-lue-yu-shi-xian",
+      "title": "分块策略与实现",
+      "file": "20-fen-kuai-ce-lue-yu-shi-xian.md",
+      "section": "核心架构深入",
+      "group": "数据管理",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "21-hui-hua-ji-yi-guan-li",
+      "title": "会话记忆管理",
+      "file": "21-hui-hua-ji-yi-guan-li.md",
+      "section": "核心架构深入",
+      "group": "数据管理",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "22-bing-fa-kong-zhi-yu-xian-liu-ji-zhi",
+      "title": "并发控制与限流机制",
+      "file": "22-bing-fa-kong-zhi-yu-xian-liu-ji-zhi.md",
+      "section": "工程实践与运维",
+      "level": "Advanced"
+    },
+    {
+      "slug": "23-mi-deng-xing-she-ji-yu-shi-xian",
+      "title": "幂等性设计与实现",
+      "file": "23-mi-deng-xing-she-ji-yu-shi-xian.md",
+      "section": "工程实践与运维",
+      "level": "Advanced"
+    },
+    {
+      "slug": "24-quan-lian-lu-zhui-zong-xi-tong",
+      "title": "全链路追踪系统",
+      "file": "24-quan-lian-lu-zhui-zong-xi-tong.md",
+      "section": "工程实践与运维",
+      "level": "Advanced"
+    },
+    {
+      "slug": "25-huan-cun-ce-lue-yu-xing-neng-you-hua",
+      "title": "缓存策略与性能优化",
+      "file": "25-huan-cun-ce-lue-yu-xing-neng-you-hua.md",
+      "section": "工程实践与运维",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "26-kong-zhi-tai-gong-neng-gai-lan",
+      "title": "控制台功能概览",
+      "file": "26-kong-zhi-tai-gong-neng-gai-lan.md",
+      "section": "工程实践与运维",
+      "group": "管理后台",
+      "level": "Beginner"
+    },
+    {
+      "slug": "27-zhi-shi-ku-guan-li-cao-zuo",
+      "title": "知识库管理操作",
+      "file": "27-zhi-shi-ku-guan-li-cao-zuo.md",
+      "section": "工程实践与运维",
+      "group": "管理后台",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "28-lian-lu-zhui-zong-fen-xi",
+      "title": "链路追踪分析",
+      "file": "28-lian-lu-zhui-zong-fen-xi.md",
+      "section": "工程实践与运维",
+      "group": "管理后台",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "29-xi-tong-pei-zhi-guan-li",
+      "title": "系统配置管理",
+      "file": "29-xi-tong-pei-zhi-guan-li.md",
+      "section": "工程实践与运维",
+      "group": "管理后台",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "30-ri-zhi-yu-cuo-wu-chu-li",
+      "title": "日志与错误处理",
+      "file": "30-ri-zhi-yu-cuo-wu-chu-li.md",
+      "section": "工程实践与运维",
+      "group": "监控与运维",
+      "level": "Advanced"
+    },
+    {
+      "slug": "31-jian-kang-jian-cha-yu-rong-duan-ji-zhi",
+      "title": "健康检查与熔断机制",
+      "file": "31-jian-kang-jian-cha-yu-rong-duan-ji-zhi.md",
+      "section": "工程实践与运维",
+      "group": "监控与运维",
+      "level": "Advanced"
+    },
+    {
+      "slug": "32-xing-neng-jian-kong-zhi-biao",
+      "title": "性能监控指标",
+      "file": "32-xing-neng-jian-kong-zhi-biao.md",
+      "section": "工程实践与运维",
+      "group": "监控与运维",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "33-cha-jian-hua-kuo-zhan-ji-zhi",
+      "title": "插件化扩展机制",
+      "file": "33-cha-jian-hua-kuo-zhan-ji-zhi.md",
+      "section": "扩展开发指南",
+      "level": "Advanced"
+    },
+    {
+      "slug": "34-jian-suo-tong-dao-kuo-zhan-kai-fa",
+      "title": "检索通道扩展开发",
+      "file": "34-jian-suo-tong-dao-kuo-zhan-kai-fa.md",
+      "section": "扩展开发指南",
+      "level": "Advanced"
+    },
+    {
+      "slug": "35-hou-zhi-chu-li-qi-shi-xian",
+      "title": "后置处理器实现",
+      "file": "35-hou-zhi-chu-li-qi-shi-xian.md",
+      "section": "扩展开发指南",
+      "level": "Advanced"
+    },
+    {
+      "slug": "36-mcp-gong-ju-kai-fa-zhi-nan",
+      "title": "MCP 工具开发指南",
+      "file": "36-mcp-gong-ju-kai-fa-zhi-nan.md",
+      "section": "扩展开发指南",
+      "level": "Advanced"
+    },
+    {
+      "slug": "37-qian-duan-er-ci-kai-fa",
+      "title": "前端二次开发",
+      "file": "37-qian-duan-er-ci-kai-fa.md",
+      "section": "扩展开发指南",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "38-api-jie-kou-gui-fan",
+      "title": "API 接口规范",
+      "file": "38-api-jie-kou-gui-fan.md",
+      "section": "扩展开发指南",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "39-rag-ji-zhu-xue-xi-lu-xian",
+      "title": "RAG 技术学习路线",
+      "file": "39-rag-ji-zhu-xue-xi-lu-xian.md",
+      "section": "学习与面试",
+      "level": "Beginner"
+    },
+    {
+      "slug": "40-qi-ye-ji-rag-shi-jian-yao-dian",
+      "title": "企业级 RAG 实践要点",
+      "file": "40-qi-ye-ji-rag-shi-jian-yao-dian.md",
+      "section": "学习与面试",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "41-chang-jian-wu-qu-yu-zui-jia-shi-jian",
+      "title": "常见误区与最佳实践",
+      "file": "41-chang-jian-wu-qu-yu-zui-jia-shi-jian.md",
+      "section": "学习与面试",
+      "level": "Advanced"
+    },
+    {
+      "slug": "42-jian-li-yu-mian-shi-zhun-bei",
+      "title": "简历与面试准备",
+      "file": "42-jian-li-yu-mian-shi-zhun-bei.md",
+      "section": "学习与面试",
+      "level": "Intermediate"
+    }
+  ]
+}

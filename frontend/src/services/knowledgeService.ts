@@ -15,6 +15,7 @@ export interface KnowledgeDocument {
   id: string;
   kbId: string;
   docName: string;
+  docType?: string | null;
   sourceType?: string | null;
   sourceLocation?: string | null;
   scheduleEnabled?: number | null;
@@ -25,6 +26,8 @@ export interface KnowledgeDocument {
   fileType?: string | null;
   fileSize?: number | null;
   chunkStrategy?: string | null;
+  parseEngine?: string | null;
+  chunkEngine?: string | null;
   chunkConfig?: string | null;
   status?: string | null;
   createdBy?: string | null;
@@ -57,8 +60,11 @@ export interface KnowledgeDocumentSearchItem {
 export interface KnowledgeDocumentChunkLog {
   id: string;
   docId: string;
+  docType?: string | null;
   status: string;
   chunkStrategy?: string | null;
+  parseEngine?: string | null;
+  chunkEngine?: string | null;
   extractDuration?: number | null;
   chunkDuration?: number | null;
   embedDuration?: number | null;
@@ -93,6 +99,7 @@ export interface KnowledgeDocumentPageParams {
 }
 
 export interface KnowledgeDocumentUploadPayload {
+  docType?: string | null;
   sourceType: "file" | "url";
   file?: File | null;
   sourceLocation?: string | null;
@@ -196,6 +203,9 @@ export const uploadDocument = async (
   payload: KnowledgeDocumentUploadPayload
 ): Promise<KnowledgeDocument> => {
   const formData = new FormData();
+  if (payload.docType) {
+    formData.append("docType", payload.docType);
+  }
   formData.append("sourceType", payload.sourceType);
   if (payload.file) {
     formData.append("file", payload.file);
@@ -228,6 +238,7 @@ export const getDocument = async (docId: string): Promise<KnowledgeDocument> => 
 
 export const updateDocument = async (docId: string, data: {
   docName?: string;
+  docType?: string;
   chunkStrategy?: string;
   chunkConfig?: string;
   sourceLocation?: string;

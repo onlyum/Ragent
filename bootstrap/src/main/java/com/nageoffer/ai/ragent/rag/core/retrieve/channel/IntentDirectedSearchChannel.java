@@ -105,7 +105,8 @@ public class IntentDirectedSearchChannel implements SearchChannel {
                     context.getMainQuestion(),
                     kbIntents,
                     context.getTopK(),
-                    topKMultiplier
+                    topKMultiplier,
+                    context.getMetadataFilters()
             );
 
             // 计算置信度（基于意图分数）
@@ -163,8 +164,9 @@ public class IntentDirectedSearchChannel implements SearchChannel {
     private List<RetrievedChunk> retrieveByIntents(String question,
                                                    List<NodeScore> kbIntents,
                                                    int fallbackTopK,
-                                                   int topKMultiplier) {
+                                                   int topKMultiplier,
+                                                   Map<String, Object> metadataFilters) {
         // 使用模板方法执行并行检索
-        return parallelRetriever.executeParallelRetrieval(question, kbIntents, fallbackTopK, topKMultiplier);
+        return parallelRetriever.executeParallelRetrieval(question, kbIntents, fallbackTopK, topKMultiplier, metadataFilters);
     }
 }

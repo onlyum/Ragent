@@ -23,6 +23,7 @@ interface ChatState {
   isStreaming: boolean;
   isCreatingNew: boolean;
   deepThinkingEnabled: boolean;
+  docTypeFilter: string;
   thinkingStartAt: number | null;
   streamTaskId: string | null;
   streamAbort: (() => void) | null;
@@ -35,6 +36,7 @@ interface ChatState {
   selectSession: (sessionId: string) => Promise<void>;
   updateSessionTitle: (sessionId: string, title: string) => void;
   setDeepThinkingEnabled: (enabled: boolean) => void;
+  setDocTypeFilter: (docType: string) => void;
   sendMessage: (content: string) => Promise<void>;
   cancelGeneration: () => void;
   appendStreamContent: (delta: string) => void;
@@ -81,6 +83,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isStreaming: false,
   isCreatingNew: false,
   deepThinkingEnabled: false,
+  docTypeFilter: "all",
   thinkingStartAt: null,
   streamTaskId: null,
   streamAbort: null,
@@ -218,11 +221,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setDeepThinkingEnabled: (enabled) => {
     set({ deepThinkingEnabled: enabled });
   },
+  setDocTypeFilter: (docType) => {
+    set({ docTypeFilter: docType || "all" });
+  },
   sendMessage: async (content) => {
     const trimmed = content.trim();
     if (!trimmed) return;
     if (get().isStreaming) return;
     const deepThinkingEnabled = get().deepThinkingEnabled;
+    const docTypeFilter = get().docTypeFilter;
     const inputFocusKey = Date.now();
 
     const userMessage: Message = {
@@ -259,7 +266,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const query = buildQuery({
       question: trimmed,
       conversationId: conversationId || undefined,
-      deepThinking: deepThinkingEnabled ? true : undefined
+      deepThinking: deepThinkingEnabled ? true : undefined,
+      docType: docTypeFilter !== "all" ? docTypeFilter : undefined
     });
     const url = `${API_BASE_URL}/rag/v3/chat${query}`;
     const token = storage.getToken();

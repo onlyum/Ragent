@@ -28,6 +28,11 @@ public class KnowledgeDocumentUpdateRequest {
     private String docName;
 
     /**
+     * 文档类型：general / project_report / academic_paper
+     */
+    private String docType;
+
+    /**
      * 分块策略，如 fixed_size、structure_aware
      */
     private String chunkStrategy;

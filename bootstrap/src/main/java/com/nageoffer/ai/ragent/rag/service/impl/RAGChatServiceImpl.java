@@ -27,6 +27,7 @@ import com.nageoffer.ai.ragent.framework.trace.RagTraceContext;
 import com.nageoffer.ai.ragent.infra.chat.LLMService;
 import com.nageoffer.ai.ragent.infra.chat.StreamCallback;
 import com.nageoffer.ai.ragent.infra.chat.StreamCancellationHandle;
+import com.nageoffer.ai.ragent.knowledge.enums.DocumentType;
 import com.nageoffer.ai.ragent.rag.aop.ChatRateLimit;
 import com.nageoffer.ai.ragent.rag.core.guidance.GuidanceDecision;
 import com.nageoffer.ai.ragent.rag.core.guidance.IntentGuidanceService;
@@ -51,6 +52,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.CHAT_SYSTEM_PROMPT_PATH;
 import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.DEFAULT_TOP_K;
@@ -79,7 +81,7 @@ public class RAGChatServiceImpl implements RAGChatService {
 
     @Override
     @ChatRateLimit
-    public void streamChat(String question, String conversationId, Boolean deepThinking, SseEmitter emitter) {
+    public void streamChat(String question, String conversationId, Boolean deepThinking, String docType, SseEmitter emitter) {
         String actualConversationId = StrUtil.isBlank(conversationId) ? IdUtil.getSnowflakeNextIdStr() : conversationId;
         String taskId = StrUtil.isBlank(RagTraceContext.getTaskId())
                 ? IdUtil.getSnowflakeNextIdStr()
@@ -116,7 +118,7 @@ public class RAGChatServiceImpl implements RAGChatService {
             return;
         }
 
-        RetrievalContext ctx = retrievalEngine.retrieve(subIntents, DEFAULT_TOP_K);
+        RetrievalContext ctx = retrievalEngine.retrieve(subIntents, DEFAULT_TOP_K, buildMetadataFilters(docType));
         if (ctx.isEmpty()) {
             String emptyReply = "未检索到与问题相关的文档内容。";
             callback.onContent(emptyReply);
@@ -141,6 +143,14 @@ public class RAGChatServiceImpl implements RAGChatService {
     @Override
     public void stopTask(String taskId) {
         taskManager.cancel(taskId);
+    }
+
+    private Map<String, Object> buildMetadataFilters(String docType) {
+        if (StrUtil.isBlank(docType)) {
+            return Map.of();
+        }
+        DocumentType documentType = DocumentType.normalize(docType);
+        return Map.of("doc_type", documentType.getValue());
     }
 
     // ==================== LLM 响应 ====================

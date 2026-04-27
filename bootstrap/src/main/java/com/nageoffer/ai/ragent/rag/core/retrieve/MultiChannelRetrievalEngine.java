@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -64,8 +65,17 @@ public class MultiChannelRetrievalEngine {
      */
     @RagTraceNode(name = "multi-channel-retrieval", type = "RETRIEVE_CHANNEL")
     public List<RetrievedChunk> retrieveKnowledgeChannels(List<SubQuestionIntent> subIntents, int topK) {
+        return retrieveKnowledgeChannels(subIntents, topK, Map.of());
+    }
+
+    /**
+     * 执行多通道检索（支持向量 metadata 过滤）
+     */
+    @RagTraceNode(name = "multi-channel-retrieval", type = "RETRIEVE_CHANNEL")
+    public List<RetrievedChunk> retrieveKnowledgeChannels(List<SubQuestionIntent> subIntents, int topK,
+                                                          Map<String, Object> metadataFilters) {
         // 构建检索上下文
-        SearchContext context = buildSearchContext(subIntents, topK);
+        SearchContext context = buildSearchContext(subIntents, topK, metadataFilters);
 
         // 【阶段1：多通道并行检索】
         List<SearchChannelResult> channelResults = executeSearchChannels(context);
@@ -214,7 +224,8 @@ public class MultiChannelRetrievalEngine {
     /**
      * 构建检索上下文
      */
-    private SearchContext buildSearchContext(List<SubQuestionIntent> subIntents, int topK) {
+    private SearchContext buildSearchContext(List<SubQuestionIntent> subIntents, int topK,
+                                             Map<String, Object> metadataFilters) {
         String question = CollUtil.isEmpty(subIntents) ? "" : subIntents.get(0).subQuestion();
 
         return SearchContext.builder()
@@ -222,6 +233,7 @@ public class MultiChannelRetrievalEngine {
                 .rewrittenQuestion(question)
                 .intents(subIntents)
                 .topK(topK)
+                .metadataFilters(metadataFilters == null ? Map.of() : metadataFilters)
                 .build();
     }
 }

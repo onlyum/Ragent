@@ -23,6 +23,11 @@ import lombok.Data;
 public class KnowledgeDocumentUploadRequest {
 
     /**
+     * 文档类型：general / project_report / academic_paper
+     */
+    private String docType;
+
+    /**
      * 来源类型：file / url
      */
     private String sourceType;

@@ -53,6 +53,27 @@ public enum ChunkingMode {
     },
 
     /**
+     * QMD 智能切分 - 基于段落边界与评分窗口做智能切块
+     */
+    QMD_SMART("qmd_smart", "QMD 智能切分", true) {
+        @Override
+        public ChunkingOptions createOptions(Map<String, Object> config) {
+            return new QmdSmartOptions(
+                    toInt(config, "maxChars", 600),
+                    toInt(config, "overlapChars", 50),
+                    toInt(config, "windowChars", 400));
+        }
+
+        @Override
+        public ChunkingOptions createDefaultOptions(Integer targetSize, Integer overlapSize) {
+            return new QmdSmartOptions(
+                    targetSize != null ? targetSize : 3600,
+                    overlapSize != null ? overlapSize : 540,
+                    800);
+        }
+    },
+
+    /**
      * 对Markdown友好的切分 - 保留Markdown结构
      */
     STRUCTURE_AWARE("structure_aware", "语义感知（Markdown友好）", true) {

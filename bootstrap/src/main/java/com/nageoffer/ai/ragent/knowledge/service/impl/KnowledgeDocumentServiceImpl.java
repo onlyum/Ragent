@@ -31,11 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.ai.ragent.core.chunk.ChunkEmbeddingService;
 import com.nageoffer.ai.ragent.core.chunk.ChunkingMode;
 import com.nageoffer.ai.ragent.core.chunk.ChunkingOptions;
-import com.nageoffer.ai.ragent.core.chunk.ChunkingStrategy;
-import com.nageoffer.ai.ragent.core.chunk.ChunkingStrategyFactory;
 import com.nageoffer.ai.ragent.core.chunk.VectorChunk;
-import com.nageoffer.ai.ragent.core.parser.DocumentParserSelector;
-import com.nageoffer.ai.ragent.core.parser.ParserType;
 import com.nageoffer.ai.ragent.framework.context.UserContext;
 import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.framework.mq.producer.MessageQueueProducer;
@@ -54,6 +50,7 @@ import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeDocumentDO;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeDocumentChunkLogMapper;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeDocumentMapper;
+import com.nageoffer.ai.ragent.knowledge.enums.DocumentType;
 import com.nageoffer.ai.ragent.knowledge.enums.DocumentStatus;
 import com.nageoffer.ai.ragent.knowledge.enums.SourceType;
 import com.nageoffer.ai.ragent.knowledge.handler.RemoteFileFetcher;
@@ -62,6 +59,7 @@ import com.nageoffer.ai.ragent.knowledge.schedule.CronScheduleHelper;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeChunkService;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeDocumentScheduleService;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeDocumentService;
+import com.nageoffer.ai.ragent.knowledge.service.ingest.KnowledgeDocumentIngestionOrchestrator;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreService;
 import com.nageoffer.ai.ragent.rag.dto.StoredFileDTO;
 import com.nageoffer.ai.ragent.rag.service.FileStorageService;
@@ -74,7 +72,6 @@ import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.InputStream;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -90,8 +87,6 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
 
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final KnowledgeDocumentMapper documentMapper;
-    private final DocumentParserSelector parserSelector;
-    private final ChunkingStrategyFactory chunkingStrategyFactory;
     private final FileStorageService fileStorageService;
     private final VectorStoreService vectorStoreService;
     private final KnowledgeChunkService knowledgeChunkService;
@@ -103,6 +98,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     private final MessageQueueProducer messageQueueProducer;
     private final KnowledgeScheduleProperties scheduleProperties;
     private final RemoteFileFetcher remoteFileFetcher;
+    private final KnowledgeDocumentIngestionOrchestrator ingestionOrchestrator;
 
     @Value("knowledge-document-chunk_topic${unique-name:}")
     private String chunkTopic;
@@ -113,6 +109,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         Assert.notNull(kbDO, () -> new ClientException("知识库不存在"));
 
         SourceType sourceType = SourceType.normalize(requestParam.getSourceType());
+        DocumentType documentType = DocumentType.normalize(requestParam.getDocType());
         validateSourceAndSchedule(sourceType, requestParam);
         StoredFileDTO stored = resolveStoredFile(kbDO.getCollectionName(), sourceType, requestParam.getSourceLocation(), file);
         ChunkProcessConfig chunkProcessConfig = resolveChunkProcessConfig(requestParam);
@@ -120,6 +117,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         KnowledgeDocumentDO documentDO = KnowledgeDocumentDO.builder()
                 .kbId(kbId)
                 .docName(stored.getOriginalFilename())
+                .docType(documentType.getValue())
                 .enabled(1)
                 .chunkCount(0)
                 .fileUrl(stored.getUrl())
@@ -188,6 +186,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
 
         KnowledgeDocumentChunkLogDO chunkLog = KnowledgeDocumentChunkLogDO.builder()
                 .docId(docId)
+                .docType(DocumentType.normalize(documentDO.getDocType()).getValue())
                 .status(DocumentStatus.RUNNING.getCode())
                 .chunkStrategy(documentDO.getChunkStrategy())
                 .startTime(new Date())
@@ -199,32 +198,37 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         long chunkDuration = 0;
         long embedDuration = 0;
         long persistDuration = 0;
+        String parseEngine = null;
+        String chunkEngine = null;
 
         try {
             ChunkProcessResult result = runChunkProcess(documentDO);
             extractDuration = result.extractDuration();
             chunkDuration = result.chunkDuration();
             embedDuration = result.embedDuration();
+            parseEngine = result.parseEngine();
+            chunkEngine = result.chunkEngine();
             List<VectorChunk> chunkResults = result.chunks();
 
             long persistStart = System.currentTimeMillis();
             String collectionName = resolveCollectionName(documentDO.getKbId());
-            int savedCount = persistChunksAndVectorsAtomically(collectionName, docId, chunkResults);
+            int savedCount = persistChunksAndVectorsAtomically(collectionName, docId, chunkResults, parseEngine, chunkEngine);
             persistDuration = System.currentTimeMillis() - persistStart;
 
             long totalDuration = System.currentTimeMillis() - totalStartTime;
             updateChunkLog(chunkLog.getId(), DocumentStatus.SUCCESS.getCode(), savedCount,
-                    extractDuration, chunkDuration, embedDuration, persistDuration, totalDuration, null);
+                    parseEngine, chunkEngine, extractDuration, chunkDuration, embedDuration, persistDuration, totalDuration, null);
         } catch (Exception e) {
             log.error("文档分块任务执行失败：docId={}", docId, e);
             markChunkFailed(documentDO.getId());
             long totalDuration = System.currentTimeMillis() - totalStartTime;
             updateChunkLog(chunkLog.getId(), DocumentStatus.FAILED.getCode(), 0,
-                    extractDuration, chunkDuration, embedDuration, persistDuration, totalDuration, e.getMessage());
+                    parseEngine, chunkEngine, extractDuration, chunkDuration, embedDuration, persistDuration, totalDuration, e.getMessage());
         }
     }
 
-    private int persistChunksAndVectorsAtomically(String collectionName, String docId, List<VectorChunk> chunkResults) {
+    private int persistChunksAndVectorsAtomically(String collectionName, String docId, List<VectorChunk> chunkResults,
+                                                  String parseEngine, String chunkEngine) {
         List<KnowledgeChunkCreateRequest> chunks = chunkResults.stream()
                 .map(vc -> {
                     KnowledgeChunkCreateRequest req = new KnowledgeChunkCreateRequest();
@@ -243,6 +247,8 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                     .id(docId)
                     .chunkCount(chunks.size())
                     .status(DocumentStatus.SUCCESS.getCode())
+                    .parseEngine(parseEngine)
+                    .chunkEngine(chunkEngine)
                     .updatedBy(UserContext.getUsername())
                     .build();
             documentMapper.updateById(updateDocumentDO);
@@ -250,13 +256,16 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         return chunks.size();
     }
 
-    private void updateChunkLog(String logId, String status, int chunkCount, long extractDuration,
+    private void updateChunkLog(String logId, String status, int chunkCount, String parseEngine, String chunkEngine,
+                                long extractDuration,
                                 long chunkDuration, long embedDuration, long persistDuration,
                                 long totalDuration, String errorMessage) {
         KnowledgeDocumentChunkLogDO update = KnowledgeDocumentChunkLogDO.builder()
                 .id(logId)
                 .status(status)
                 .chunkCount(chunkCount)
+                .parseEngine(parseEngine)
+                .chunkEngine(chunkEngine)
                 .extractDuration(extractDuration)
                 .chunkDuration(chunkDuration)
                 .embedDuration(embedDuration)
@@ -273,32 +282,26 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
      * 4 阶段中的前 3 阶段：Extract → Chunk → Embed
      */
     private ChunkProcessResult runChunkProcess(KnowledgeDocumentDO documentDO) {
-        ChunkingMode chunkingMode = ChunkingMode.fromValue(documentDO.getChunkStrategy());
+        ChunkingMode chunkingMode = StringUtils.hasText(documentDO.getChunkStrategy())
+                ? ChunkingMode.fromValue(documentDO.getChunkStrategy())
+                : ChunkingMode.QMD_SMART;
         KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(documentDO.getKbId());
         String embeddingModel = kbDO.getEmbeddingModel();
         ChunkingOptions config = buildChunkingOptions(chunkingMode, documentDO);
-
-        long extractStart = System.currentTimeMillis();
-        try (InputStream is = fileStorageService.openStream(documentDO.getFileUrl())) {
-            String text = parserSelector.select(ParserType.TIKA.getType()).extractText(is, documentDO.getDocName());
-            long extractDuration = System.currentTimeMillis() - extractStart;
-
-            ChunkingStrategy chunkingStrategy = chunkingStrategyFactory.requireStrategy(chunkingMode);
-            long chunkStart = System.currentTimeMillis();
-            List<VectorChunk> chunks = chunkingStrategy.chunk(text, config);
-            long chunkDuration = System.currentTimeMillis() - chunkStart;
-
-            long embedStart = System.currentTimeMillis();
-            chunkEmbeddingService.embed(chunks, embeddingModel);
-            long embedDuration = System.currentTimeMillis() - embedStart;
-
-            return new ChunkProcessResult(chunks, extractDuration, chunkDuration, embedDuration);
-        } catch (Exception e) {
-            throw new RuntimeException("文档内容提取或分块失败", e);
-        }
+        KnowledgeDocumentIngestionOrchestrator.IngestionProcessResult result =
+                ingestionOrchestrator.process(documentDO, chunkingMode, config, embeddingModel);
+        return new ChunkProcessResult(
+                result.chunks(),
+                result.route().parserType(),
+                result.chunkEngine(),
+                result.extractDuration(),
+                result.chunkDuration(),
+                result.embedDuration()
+        );
     }
 
-    private record ChunkProcessResult(List<VectorChunk> chunks, long extractDuration, long chunkDuration,
+    private record ChunkProcessResult(List<VectorChunk> chunks, String parseEngine, String chunkEngine,
+                                      long extractDuration, long chunkDuration,
                                       long embedDuration) {
     }
 
@@ -374,6 +377,11 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 .eq(KnowledgeDocumentDO::getId, documentDO.getId())
                 .set(KnowledgeDocumentDO::getDocName, docName.trim())
                 .set(KnowledgeDocumentDO::getUpdatedBy, UserContext.getUsername());
+
+        if (StringUtils.hasText(requestParam.getDocType())) {
+            DocumentType documentType = DocumentType.normalize(requestParam.getDocType());
+            updateWrapper.set(KnowledgeDocumentDO::getDocType, documentType.getValue());
+        }
 
         if (StringUtils.hasText(requestParam.getChunkStrategy()) || requestParam.getChunkConfig() != null) {
             ChunkingMode chunkingMode = StringUtils.hasText(requestParam.getChunkStrategy())
@@ -534,6 +542,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 log.warn("启用文档时未找到任何 Chunk，跳过向量重建，docId={}", docId);
                 return;
             }
+            ingestionOrchestrator.enrichChunks(documentDO, vectorChunks);
             chunkEmbeddingService.embed(vectorChunks, kbDO.getEmbeddingModel());
         }
 
@@ -617,7 +626,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     private ChunkProcessConfig resolveChunkProcessConfig(KnowledgeDocumentUploadRequest request) {
         String strategyValue = StringUtils.hasText(request.getChunkStrategy())
                 ? request.getChunkStrategy()
-                : ChunkingMode.FIXED_SIZE.getValue();
+                : ChunkingMode.QMD_SMART.getValue();
         ChunkingMode chunkingMode = ChunkingMode.fromValue(strategyValue);
         String chunkConfig = validateAndNormalizeChunkConfig(chunkingMode, request.getChunkConfig());
         return new ChunkProcessConfig(chunkingMode, chunkConfig);
@@ -641,7 +650,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
             return null;
         }
         if (mode == null) {
-            mode = ChunkingMode.STRUCTURE_AWARE;
+            mode = ChunkingMode.QMD_SMART;
         }
         String json = chunkConfigJson.trim();
         Map<String, Object> config;

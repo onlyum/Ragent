@@ -26,6 +26,7 @@ import com.nageoffer.ai.ragent.rag.core.retrieve.channel.AbstractParallelRetriev
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 /**
@@ -53,17 +54,34 @@ public class IntentParallelRetriever extends AbstractParallelRetriever<IntentPar
                                                          List<NodeScore> targets,
                                                          int fallbackTopK,
                                                          int topKMultiplier) {
+        return executeParallelRetrieval(question, targets, fallbackTopK, topKMultiplier, Map.of());
+    }
+
+    /**
+     * 执行并行检索（支持 metadata 过滤条件）
+     */
+    public List<RetrievedChunk> executeParallelRetrieval(String question,
+                                                         List<NodeScore> targets,
+                                                         int fallbackTopK,
+                                                         int topKMultiplier,
+                                                         Map<String, Object> metadataFilters) {
         List<IntentTask> intentTasks = targets.stream()
                 .map(nodeScore -> new IntentTask(
                         nodeScore,
                         resolveIntentTopK(nodeScore, fallbackTopK, topKMultiplier)
                 ))
                 .toList();
-        return super.executeParallelRetrieval(question, intentTasks, fallbackTopK);
+        return super.executeParallelRetrieval(question, intentTasks, fallbackTopK, metadataFilters);
     }
 
     @Override
     protected List<RetrievedChunk> createRetrievalTask(String question, IntentTask task, int ignoredTopK) {
+        return createRetrievalTask(question, task, ignoredTopK, Map.of());
+    }
+
+    @Override
+    protected List<RetrievedChunk> createRetrievalTask(String question, IntentTask task, int ignoredTopK,
+                                                       Map<String, Object> metadataFilters) {
         NodeScore nodeScore = task.nodeScore();
         IntentNode node = nodeScore.getNode();
         try {
@@ -72,6 +90,7 @@ public class IntentParallelRetriever extends AbstractParallelRetriever<IntentPar
                             .collectionName(node.getCollectionName())
                             .query(question)
                             .topK(task.intentTopK())
+                            .metadataFilters(metadataFilters)
                             .build()
             );
         } catch (Exception e) {

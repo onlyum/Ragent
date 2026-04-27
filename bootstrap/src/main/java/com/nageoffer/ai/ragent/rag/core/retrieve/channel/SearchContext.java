@@ -66,6 +66,12 @@ public class SearchContext {
     private Map<String, Object> metadata = new HashMap<>();
 
     /**
+     * 向量 metadata 等值过滤条件
+     */
+    @Builder.Default
+    private Map<String, Object> metadataFilters = new HashMap<>();
+
+    /**
      * 获取主问题（优先使用重写后的问题）
      */
     public String getMainQuestion() {

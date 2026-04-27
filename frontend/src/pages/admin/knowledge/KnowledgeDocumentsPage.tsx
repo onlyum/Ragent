@@ -47,6 +47,12 @@ const SOURCE_OPTIONS = [
   { value: "url", label: "Remote URL" }
 ];
 
+const DOC_TYPE_OPTIONS = [
+  { value: "general", label: "通用文档" },
+  { value: "project_report", label: "项目报告" },
+  { value: "academic_paper", label: "学术论文" }
+];
+
 const NO_CHUNK_VALUE = -1;
 
 const parseChunkConfig = (raw?: string | null): Record<string, unknown> => {
@@ -94,11 +100,30 @@ const formatSourceLabel = (sourceType?: string | null) => {
   return "-";
 };
 
+const formatDocTypeLabel = (docType?: string | null) => {
+  const normalized = docType?.toLowerCase();
+  if (normalized === "academic_paper") return "学术论文";
+  if (normalized === "project_report") return "项目报告";
+  if (normalized === "general") return "通用文档";
+  return docType || "-";
+};
+
 const formatChunkStrategy = (strategy?: string | null) => {
   const normalized = strategy?.toLowerCase();
   if (normalized === "fixed_size") return "固定大小";
+  if (normalized === "qmd_smart") return "QMD 智能切分";
   if (normalized === "structure_aware") return "语义感知（Markdown友好）";
   return strategy || "-";
+};
+
+const formatEngine = (engine?: string | null) => {
+  if (!engine) return "-";
+  const normalized = engine.toLowerCase();
+  if (normalized === "tika") return "Tika";
+  if (normalized === "markdown") return "Markdown";
+  if (normalized === "qmd") return "QMD";
+  if (normalized === "structure_aware") return "Structure";
+  return engine;
 };
 
 export function KnowledgeDocumentsPage() {
@@ -117,7 +142,8 @@ export function KnowledgeDocumentsPage() {
   const [detailTarget, setDetailTarget] = useState<KnowledgeDocument | null>(null);
   const [detailName, setDetailName] = useState("");
   const [detailSaving, setDetailSaving] = useState(false);
-  const [detailChunkStrategy, setDetailChunkStrategy] = useState("structure_aware");
+  const [detailDocType, setDetailDocType] = useState("general");
+  const [detailChunkStrategy, setDetailChunkStrategy] = useState("qmd_smart");
   const [detailStrategies, setDetailStrategies] = useState<ChunkStrategyOption[]>([]);
   const [detailConfigValues, setDetailConfigValues] = useState<Record<string, string>>({});
   const [detailSourceLocation, setDetailSourceLocation] = useState("");
@@ -170,7 +196,8 @@ export function KnowledgeDocumentsPage() {
   useEffect(() => {
     if (detailTarget) {
       setDetailName(detailTarget.docName || "");
-      setDetailChunkStrategy((detailTarget.chunkStrategy || "structure_aware").toLowerCase());
+      setDetailDocType((detailTarget.docType || "general").toLowerCase());
+      setDetailChunkStrategy((detailTarget.chunkStrategy || "qmd_smart").toLowerCase());
       setDetailSourceLocation(detailTarget.sourceLocation || "");
       setDetailScheduleEnabled(Boolean(detailTarget.scheduleEnabled));
       setDetailScheduleCron(detailTarget.scheduleCron || "");
@@ -187,7 +214,8 @@ export function KnowledgeDocumentsPage() {
       getChunkStrategies().then(setDetailStrategies).catch(() => {});
     } else {
       setDetailName("");
-      setDetailChunkStrategy("structure_aware");
+      setDetailDocType("general");
+      setDetailChunkStrategy("qmd_smart");
       setDetailConfigValues({});
       setDetailStrategies([]);
       setDetailSourceLocation("");
@@ -254,15 +282,23 @@ export function KnowledgeDocumentsPage() {
     }
     setDetailSaving(true);
     try {
+      const parseConfigValue = (value: string | undefined, fallback: number) => {
+        if (value === undefined || value.trim() === "") {
+          return fallback;
+        }
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+      };
       const data: Parameters<typeof updateDocument>[1] = {
-        docName: nextName
+        docName: nextName,
+        docType: detailDocType
       };
       data.chunkStrategy = detailChunkStrategy;
       const strategy = detailStrategies.find(s => s.value === detailChunkStrategy);
       if (strategy) {
         const configObj: Record<string, number> = {};
         for (const key of Object.keys(strategy.defaultConfig)) {
-          configObj[key] = Number(detailConfigValues[key]) || strategy.defaultConfig[key];
+          configObj[key] = parseConfigValue(detailConfigValues[key], strategy.defaultConfig[key]);
         }
         data.chunkConfig = JSON.stringify(configObj);
       }
@@ -410,6 +446,7 @@ export function KnowledgeDocumentsPage() {
                 <TableRow>
                   <TableHead className="w-[260px]">文档</TableHead>
                   <TableHead className="w-[120px]">来源</TableHead>
+                  <TableHead className="w-[120px]">文档类型</TableHead>
                   <TableHead className="w-[120px]">切分方式</TableHead>
                   <TableHead className="w-[120px]">状态</TableHead>
                   <TableHead className="w-[80px]">启用</TableHead>
@@ -443,8 +480,18 @@ export function KnowledgeDocumentsPage() {
                     </TableCell>
                     <TableCell>
                       <span className="text-xs text-muted-foreground">
-                        {formatChunkStrategy(doc.chunkStrategy)}
+                        {formatDocTypeLabel(doc.docType)}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5 text-xs">
+                        <div className="text-muted-foreground">{formatChunkStrategy(doc.chunkStrategy)}</div>
+                        {(doc.parseEngine || doc.chunkEngine) ? (
+                          <div className="text-[11px] text-slate-400">
+                            {formatEngine(doc.parseEngine)} / {formatEngine(doc.chunkEngine)}
+                          </div>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
@@ -626,6 +673,22 @@ export function KnowledgeDocumentsPage() {
               </div>
 
               <div>
+                <div className="text-sm font-medium mb-2">文档类型</div>
+                <Select value={detailDocType} onValueChange={setDetailDocType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择文档类型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DOC_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <div className="text-sm font-medium mb-2">{detailNameLabel}</div>
                 <Input value={detailName} onChange={(event) => setDetailName(event.target.value)} />
               </div>
@@ -693,6 +756,26 @@ export function KnowledgeDocumentsPage() {
                       <div className="text-sm font-medium mb-2">重叠大小</div>
                       <Input type="number" value={detailConfigValues["overlapSize"] ?? "128"}
                         onChange={e => setDetailConfigValues(v => ({ ...v, overlapSize: e.target.value }))} />
+                    </div>
+                  </div>
+                ) : detailChunkStrategy === "qmd_smart" ? (
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div>
+                      <div className="text-sm font-medium mb-2">块上限</div>
+                      <Input type="number" value={detailConfigValues["maxChars"] ?? "600"}
+                        onChange={e => setDetailConfigValues(v => ({ ...v, maxChars: e.target.value }))} />
+                      <div className="text-sm text-muted-foreground mt-1">QMD 单块最大字符数</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium mb-2">重叠大小</div>
+                      <Input type="number" value={detailConfigValues["overlapChars"] ?? "50"}
+                        onChange={e => setDetailConfigValues(v => ({ ...v, overlapChars: e.target.value }))} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium mb-2">窗口大小</div>
+                      <Input type="number" value={detailConfigValues["windowChars"] ?? "400"}
+                        onChange={e => setDetailConfigValues(v => ({ ...v, windowChars: e.target.value }))} />
+                      <div className="text-sm text-muted-foreground mt-1">用于搜索更自然的边界</div>
                     </div>
                   </div>
                 ) : (
@@ -764,7 +847,11 @@ export function KnowledgeDocumentsPage() {
                       </span>
                       <span className="text-sm text-muted-foreground">
                         直接分块
+                        {log.docType ? ` · ${formatDocTypeLabel(log.docType)}` : ""}
                         {log.chunkStrategy ? ` · ${formatChunkStrategy(log.chunkStrategy)}` : ""}
+                        {(log.parseEngine || log.chunkEngine)
+                          ? ` · ${formatEngine(log.parseEngine)} / ${formatEngine(log.chunkEngine)}`
+                          : ""}
                       </span>
                     </div>
                     <span className="text-2xl font-semibold tabular-nums">{log.chunkCount ?? 0} <span className="text-sm font-normal text-muted-foreground">块</span></span>
@@ -839,6 +926,7 @@ interface UploadDialogProps {
 
 const uploadSchema = z
   .object({
+    docType: z.enum(["general", "project_report", "academic_paper"]).default("general"),
     sourceType: z.enum(["file", "url"]),
     sourceLocation: z.string().optional(),
     scheduleEnabled: z.boolean().default(false),
@@ -849,7 +937,8 @@ const uploadSchema = z
     targetChars: z.string().optional(),
     maxChars: z.string().optional(),
     minChars: z.string().optional(),
-    overlapChars: z.string().optional()
+    overlapChars: z.string().optional(),
+    windowChars: z.string().optional()
   })
   .superRefine((values, ctx) => {
     const isBlank = (value?: string) => !value || value.trim() === "";
@@ -897,6 +986,10 @@ const uploadSchema = z
     if (values.chunkStrategy === "fixed_size") {
       requireNumber(values.chunkSize, "chunkSize", "块大小");
       requireNumber(values.overlapSize, "overlapSize", "重叠大小");
+    } else if (values.chunkStrategy === "qmd_smart") {
+      requireNumber(values.maxChars, "maxChars", "块上限");
+      requireNumber(values.overlapChars, "overlapChars", "重叠大小");
+      requireNumber(values.windowChars, "windowChars", "窗口大小");
     } else {
       requireNumber(values.targetChars, "targetChars", "理想块大小");
       requireNumber(values.maxChars, "maxChars", "块上限");
@@ -920,17 +1013,19 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
     defaultValues: {
+      docType: "general",
       sourceType: "file",
       sourceLocation: "",
       scheduleEnabled: false,
       scheduleCron: "",
-      chunkStrategy: "fixed_size",
+      chunkStrategy: "qmd_smart",
       chunkSize: "512",
       overlapSize: "128",
       targetChars: "1400",
-      maxChars: "1800",
+      maxChars: "3600",
       minChars: "600",
-      overlapChars: "0"
+      overlapChars: "540",
+      windowChars: "800"
     }
   });
 
@@ -940,22 +1035,25 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
   const chunkSize = form.watch("chunkSize");
   const isUrlSource = sourceType === "url";
   const isFixedSize = chunkStrategy === "fixed_size";
+  const isQmdSmart = chunkStrategy === "qmd_smart";
 
   useEffect(() => {
     if (open) {
       setFile(null);
       form.reset({
+        docType: "general",
         sourceType: "file",
         sourceLocation: "",
         scheduleEnabled: false,
         scheduleCron: "",
-        chunkStrategy: "fixed_size",
+        chunkStrategy: "qmd_smart",
         chunkSize: "512",
         overlapSize: "128",
         targetChars: "1400",
-        maxChars: "1800",
+        maxChars: "3600",
         minChars: "600",
-        overlapChars: "0"
+        overlapChars: "540",
+        windowChars: "800"
       });
       setNoChunk(false);
       setOriginalChunkSize("512");
@@ -983,7 +1081,8 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
       targetChars: (v) => form.setValue("targetChars", v),
       maxChars: (v) => form.setValue("maxChars", v),
       minChars: (v) => form.setValue("minChars", v),
-      overlapChars: (v) => form.setValue("overlapChars", v)
+      overlapChars: (v) => form.setValue("overlapChars", v),
+      windowChars: (v) => form.setValue("windowChars", v)
     };
     for (const key of Object.keys(strategy.defaultConfig)) {
       if (defaults[key] !== undefined && formAccessors[key]) {
@@ -1043,7 +1142,8 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
         targetChars: values.targetChars,
         maxChars: values.maxChars,
         minChars: values.minChars,
-        overlapChars: values.overlapChars
+        overlapChars: values.overlapChars,
+        windowChars: values.windowChars
       };
       const config: Record<string, number> = {};
       for (const key of Object.keys(strategy.defaultConfig)) {
@@ -1058,6 +1158,7 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
     setSaving(true);
     try {
       const payload: KnowledgeDocumentUploadPayload = {
+        docType: values.docType,
         sourceType: values.sourceType,
         file: values.sourceType === "file" ? file : null,
         sourceLocation: values.sourceType === "url" ? values.sourceLocation.trim() : null,
@@ -1091,6 +1192,32 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(handleSubmit)}>
+            <FormField
+              control={form.control}
+              name="docType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>文档类型</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择文档类型" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {DOC_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>用于第一阶段路由与 metadata 隔离，后续会影响解析专轨。</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="sourceType"
@@ -1308,6 +1435,50 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
                     </FormItem>
                   </div>
                 </>
+              ) : isQmdSmart ? (
+                <div className="grid gap-4 md:grid-cols-3">
+                  <FormField
+                    control={form.control}
+                    name="maxChars"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs text-muted-foreground font-normal">块上限</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} />
+                        </FormControl>
+                        <FormDescription>QMD 单块最大字符数</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="overlapChars"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs text-muted-foreground font-normal">重叠大小</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="windowChars"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs text-muted-foreground font-normal">窗口大小</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} />
+                        </FormControl>
+                        <FormDescription>用于搜索更自然的段落边界</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField

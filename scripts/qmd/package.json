@@ -1,0 +1,11 @@
+{
+  "name": "ragent-qmd-adapter",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smoke": "node chunker.mjs < smoke-request.json"
+  },
+  "dependencies": {
+    "@tobilu/qmd": "2.1.0"
+  }
+}

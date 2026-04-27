@@ -84,6 +84,12 @@ rag:
       lock-seconds: 900
       batch-size: 20
       min-interval-seconds: 60
+    qmd:
+      enabled: true
+      command: node
+      script-path: scripts/qmd/chunker.mjs
+      chunk-strategy: regex
+      timeout-ms: 120000
 
   mcp:
     servers:

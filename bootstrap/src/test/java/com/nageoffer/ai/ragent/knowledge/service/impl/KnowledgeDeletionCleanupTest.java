@@ -35,6 +35,7 @@ import com.nageoffer.ai.ragent.knowledge.enums.DocumentStatus;
 import com.nageoffer.ai.ragent.knowledge.handler.RemoteFileFetcher;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeChunkService;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeDocumentScheduleService;
+import com.nageoffer.ai.ragent.knowledge.service.ingest.KnowledgeDocumentIngestionOrchestrator;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreAdmin;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreService;
 import com.nageoffer.ai.ragent.rag.service.FileStorageService;
@@ -88,6 +89,8 @@ class KnowledgeDeletionCleanupTest {
     private KnowledgeScheduleProperties scheduleProperties;
     @Mock
     private RemoteFileFetcher remoteFileFetcher;
+    @Mock
+    private KnowledgeDocumentIngestionOrchestrator ingestionOrchestrator;
 
     @Mock
     private KnowledgeChunkMapper chunkMapper;
@@ -143,8 +146,6 @@ class KnowledgeDeletionCleanupTest {
         KnowledgeDocumentServiceImpl service = new KnowledgeDocumentServiceImpl(
                 knowledgeBaseMapper,
                 knowledgeDocumentMapper,
-                parserSelector,
-                chunkingStrategyFactory,
                 fileStorageService,
                 vectorStoreService,
                 knowledgeChunkService,
@@ -155,7 +156,8 @@ class KnowledgeDeletionCleanupTest {
                 transactionOperations,
                 messageQueueProducer,
                 scheduleProperties,
-                remoteFileFetcher
+                remoteFileFetcher,
+                ingestionOrchestrator
         );
         KnowledgeDocumentDO document = KnowledgeDocumentDO.builder()
                 .id("doc-1")

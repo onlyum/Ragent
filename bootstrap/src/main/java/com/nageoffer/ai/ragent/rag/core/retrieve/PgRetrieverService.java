@@ -24,8 +24,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -50,15 +53,40 @@ public class PgRetrieverService implements RetrieverService {
         jdbcTemplate.execute("SET hnsw.ef_search = 200");
 
         String vectorLiteral = toVectorLiteral(vector);
+        QueryPlan queryPlan = buildQueryPlan(request, vectorLiteral);
         // noinspection SqlDialectInspection,SqlNoDataSourceInspection
-        return jdbcTemplate.query("SELECT id, content, 1 - (embedding <=> ?::vector) AS score FROM t_knowledge_vector WHERE metadata->>'collection_name' = ? ORDER BY embedding <=> ?::vector LIMIT ?",
+        return jdbcTemplate.query(queryPlan.sql(),
                 (rs, rowNum) -> RetrievedChunk.builder()
                         .id(rs.getString("id"))
                         .text(rs.getString("content"))
                         .score(rs.getFloat("score"))
                         .build(),
-                vectorLiteral, request.getCollectionName(), vectorLiteral, request.getTopK()
+                queryPlan.args()
         );
+    }
+
+    QueryPlan buildQueryPlan(RetrieveRequest request, String vectorLiteral) {
+        StringBuilder sql = new StringBuilder("SELECT id, content, 1 - (embedding <=> ?::vector) AS score FROM t_knowledge_vector WHERE metadata->>'collection_name' = ?");
+        List<Object> args = new ArrayList<>();
+        args.add(vectorLiteral);
+        args.add(request.getCollectionName());
+
+        Map<String, Object> metadataFilters = request.getMetadataFilters();
+        if (metadataFilters != null && !metadataFilters.isEmpty()) {
+            metadataFilters.forEach((key, value) -> {
+                if (!StringUtils.hasText(key) || value == null) {
+                    return;
+                }
+                sql.append(" AND metadata->>? = ?");
+                args.add(key);
+                args.add(String.valueOf(value));
+            });
+        }
+
+        sql.append(" ORDER BY embedding <=> ?::vector LIMIT ?");
+        args.add(vectorLiteral);
+        args.add(request.getTopK());
+        return new QueryPlan(sql.toString(), args.toArray());
     }
 
     private float[] normalize(float[] vector) {
@@ -90,5 +118,8 @@ public class PgRetrieverService implements RetrieverService {
             sb.append(embedding[i]);
         }
         return sb.append("]").toString();
+    }
+
+    record QueryPlan(String sql, Object[] args) {
     }
 }

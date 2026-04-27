@@ -24,6 +24,7 @@ import com.nageoffer.ai.ragent.rag.core.retrieve.channel.AbstractParallelRetriev
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 /**
@@ -42,12 +43,19 @@ public class CollectionParallelRetriever extends AbstractParallelRetriever<Strin
 
     @Override
     protected List<RetrievedChunk> createRetrievalTask(String question, String collectionName, int topK) {
+        return createRetrievalTask(question, collectionName, topK, Map.of());
+    }
+
+    @Override
+    protected List<RetrievedChunk> createRetrievalTask(String question, String collectionName, int topK,
+                                                       Map<String, Object> metadataFilters) {
         try {
             return retrieverService.retrieve(
                     RetrieveRequest.builder()
                             .collectionName(collectionName)
                             .query(question)
                             .topK(topK)
+                            .metadataFilters(metadataFilters)
                             .build()
             );
         } catch (Exception e) {

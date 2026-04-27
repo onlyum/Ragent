@@ -57,9 +57,11 @@ public class ChatRateLimitAspect {
     @Around("@annotation(com.nageoffer.ai.ragent.rag.aop.ChatRateLimit)")
     public Object limitStreamChat(ProceedingJoinPoint joinPoint) throws Throwable {
         Object[] args = joinPoint.getArgs();
-        if (args == null || args.length < 4 || !(args[3] instanceof SseEmitter emitter)) {
+        int emitterIndex = findEmitterIndex(args);
+        if (args == null || emitterIndex < 0) {
             return joinPoint.proceed();
         }
+        SseEmitter emitter = (SseEmitter) args[emitterIndex];
 
         String question = args[0] instanceof String q ? q : "";
         String conversationId = args[1] instanceof String cid ? cid : null;
@@ -73,6 +75,18 @@ public class ChatRateLimitAspect {
             invokeWithTrace(method, target, args, question, actualConversationId, emitter);
         });
         return null;
+    }
+
+    private int findEmitterIndex(Object[] args) {
+        if (args == null) {
+            return -1;
+        }
+        for (int i = 0; i < args.length; i++) {
+            if (args[i] instanceof SseEmitter) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private void invokeWithTrace(Method method,

@@ -130,6 +130,7 @@ CREATE TABLE t_knowledge_document (
     id               VARCHAR(20)        NOT NULL PRIMARY KEY,
     kb_id            VARCHAR(20)        NOT NULL,
     doc_name         VARCHAR(256)  NOT NULL,
+    doc_type         VARCHAR(32)   NOT NULL DEFAULT 'general',
     enabled          SMALLINT      NOT NULL DEFAULT 1,
     chunk_count      INTEGER       DEFAULT 0,
     file_url         VARCHAR(1024) NOT NULL,
@@ -141,6 +142,8 @@ CREATE TABLE t_knowledge_document (
     schedule_enabled SMALLINT,
     schedule_cron    VARCHAR(64),
     chunk_strategy   VARCHAR(32),
+    parse_engine     VARCHAR(32),
+    chunk_engine     VARCHAR(32),
     chunk_config     JSONB,
     created_by       VARCHAR(20)   NOT NULL,
     updated_by       VARCHAR(20),
@@ -149,6 +152,7 @@ CREATE TABLE t_knowledge_document (
     deleted          SMALLINT      NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_kb_id ON t_knowledge_document (kb_id);
+CREATE INDEX idx_doc_type ON t_knowledge_document (doc_type);
 COMMENT ON TABLE t_knowledge_document IS '知识库文档表';
 
 CREATE TABLE t_knowledge_chunk (
@@ -173,8 +177,11 @@ COMMENT ON TABLE t_knowledge_chunk IS '知识库文档分块表';
 CREATE TABLE t_knowledge_document_chunk_log (
     id                 VARCHAR(20)      NOT NULL PRIMARY KEY,
     doc_id             VARCHAR(20)      NOT NULL,
+    doc_type           VARCHAR(32),
     status             VARCHAR(16)      NOT NULL,
     chunk_strategy     VARCHAR(16),
+    parse_engine       VARCHAR(32),
+    chunk_engine       VARCHAR(32),
     extract_duration   BIGINT,
     chunk_duration     BIGINT,
     embed_duration     BIGINT,
@@ -413,6 +420,7 @@ COMMENT ON COLUMN t_knowledge_base.deleted IS '是否删除 0：正常 1：删�
 COMMENT ON COLUMN t_knowledge_document.id IS 'ID';
 COMMENT ON COLUMN t_knowledge_document.kb_id IS '知识库ID';
 COMMENT ON COLUMN t_knowledge_document.doc_name IS '文档名称';
+COMMENT ON COLUMN t_knowledge_document.doc_type IS '文档类型：general/project_report/academic_paper';
 COMMENT ON COLUMN t_knowledge_document.enabled IS '是否启用 1：启用 0：禁用';
 COMMENT ON COLUMN t_knowledge_document.chunk_count IS '分块数量';
 COMMENT ON COLUMN t_knowledge_document.file_url IS '文件存储路径';
@@ -424,6 +432,8 @@ COMMENT ON COLUMN t_knowledge_document.source_location IS '来源地址';
 COMMENT ON COLUMN t_knowledge_document.schedule_enabled IS '是否启用定时刷新';
 COMMENT ON COLUMN t_knowledge_document.schedule_cron IS '定时表达式';
 COMMENT ON COLUMN t_knowledge_document.chunk_strategy IS '分块策略';
+COMMENT ON COLUMN t_knowledge_document.parse_engine IS '实际使用的解析引擎';
+COMMENT ON COLUMN t_knowledge_document.chunk_engine IS '实际使用的切块引擎';
 COMMENT ON COLUMN t_knowledge_document.chunk_config IS '分块配置JSON';
 COMMENT ON COLUMN t_knowledge_document.created_by IS '创建人';
 COMMENT ON COLUMN t_knowledge_document.updated_by IS '修改人';
@@ -450,8 +460,11 @@ COMMENT ON COLUMN t_knowledge_chunk.deleted IS '是否删除 0：正常 1：删�
 -- t_knowledge_document_chunk_log
 COMMENT ON COLUMN t_knowledge_document_chunk_log.id IS 'ID';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.doc_id IS '文档ID';
+COMMENT ON COLUMN t_knowledge_document_chunk_log.doc_type IS '文档类型';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.status IS '状态';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.chunk_strategy IS '分块策略';
+COMMENT ON COLUMN t_knowledge_document_chunk_log.parse_engine IS '实际使用的解析引擎';
+COMMENT ON COLUMN t_knowledge_document_chunk_log.chunk_engine IS '实际使用的切块引擎';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.extract_duration IS '提取耗时（毫秒）';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.chunk_duration IS '分块耗时（毫秒）';
 COMMENT ON COLUMN t_knowledge_document_chunk_log.embed_duration IS '向量化耗时（毫秒）';
